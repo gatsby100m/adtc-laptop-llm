@@ -5,28 +5,35 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
-from llama_cpp import Llama
+
+# =====================================================================
+# 🛡️ SAFE CRASH-PROOF BINDING LOADER
+# =====================================================================
+# This try-except block prevents Streamlit Cloud from crashing 
+# while maintaining the offline engine for the judge's laptop execution.
+try:
+    from llama_cpp import Llama
+    LLAMA_AVAILABLE = True
+except ImportError:
+    LLAMA_AVAILABLE = False
 
 # =====================================================================
 # ⚙️ CONFIGURATION & HACKATHON FLAGS
 # =====================================================================
-# Set to True to test quickly on the cloud. 
-# Set to False for Devpost submission to download and run 100% offline!
+# True = Runs instantly in the cloud via API. 
+# False = Runs 100% offline on a local laptop using GGUF.
 RUN_IN_CLOUD_FIRST = True  
 
 MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
-
-# Free backup API endpoint for cloud testing phase
 CLOUD_API_URL = "https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
 # =====================================================================
 def load_local_knowledge(crop_type):
-    """Reads context directly from local text files to prevent model hallucination."""
     file_path = f"knowledge/{crop_type.lower()}_guide.txt"
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
@@ -37,7 +44,6 @@ def load_local_knowledge(crop_type):
 # 📥 AUTO-DOWNLOAD ROUTINE
 # =====================================================================
 def ensure_local_model_exists():
-    """Checks for local model file; downloads automatically if missing."""
     if not os.path.exists(MODEL_PATH):
         with st.spinner("📦 First boot detected! Downloading ultra-lightweight 0.5B LLM weights..."):
             os.makedirs(LOCAL_MODELS_DIR, exist_ok=True)
@@ -50,39 +56,34 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (WITH PROVERBS & CULTURAL WRAP)
+# 🤖 DUAL-MODE INFERENCE ENGINE
 # =====================================================================
 def generate_response(prompt_text, context=""):
-    """Executes prompt via cloud endpoints or local engine based on mode."""
-    
-    # Ground the prompt securely with our localized context files
     system_prompt = (
         "You are an expert African agricultural specialist. Use the following context documents "
         "to answer accurately. End your response with a brief, warm, encouraging traditional greeting "
         f"or proverb suitable for an African farmer.\n\nContext:\n{context}"
     )
-    
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
-    if RUN_IN_CLOUD_FIRST:
-        headers = {"Authorization": "Bearer YOUR_HF_API_KEY_HERE"}
+    # Force cloud mode fallback if llama-cpp binaries aren't installed on the server
+    if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
+        # Read securely from hidden cloud settings
+        hf_token = st.secrets["HF_TOKEN"] if "HF_TOKEN" in st.secrets else "YOUR_FALLBACK_TOKEN"
+        headers = {"Authorization": f"Bearer {hf_token}"}
         payload = {"inputs": full_prompt}
         try:
             response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
-            # Basic fallback cleaner to parse output
-            text = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-            return text.split("<|im_start|>assistant\n")[-1]
+            res_json = response.json()
+            if isinstance(res_json, list):
+                return res_json[0]['generated_text'].split("<|im_start|>assistant\n")[-1]
+            return res_json['generated_text'].split("<|im_start|>assistant\n")[-1]
         except Exception as e:
             return f"Cloud API Connection Error: {str(e)}"
     else:
         ensure_local_model_exists()
-        # Keep context footprint clamped to 1024 to respect memory limits
         llm = Llama(model_path=MODEL_PATH, n_ctx=1024, verbose=False)
-        output = llm(
-            full_prompt,
-            max_tokens=300,
-            stop=["<|im_end|>"]
-        )
+        output = llm(full_prompt, max_tokens=300, stop=["<|im_end|>"])
         return output["choices"]["text"]
 
 # =====================================================================
@@ -90,18 +91,15 @@ def generate_response(prompt_text, context=""):
 # =====================================================================
 st.set_page_config(page_title="Smart Farm Assistant", page_icon="🌾", layout="centered")
 
-# --- 1. SYSTEM CONTROLS & LANGUAGE TOGGLE ---
 st.title("🌾 Smart Farm Assistant")
 language = st.selectbox("🌐 Choose Language / Zabi Yare", ["English", "Hausa"])
 
-# Cultural Daily Motivating Proverbs Dictionary
 proverbs = {
     "English": "🍀 Proverbs of the day: 'Rain does not fall on one roof alone.' (An Ashanti Proverb) — Keep working hard alongside your community!",
     "Hausa": "🍀 Karin magana na ranar: 'Yau da gobe mai sa al'amura su daidaitu.' — Taimakon juna yana kawo babban amfanin gona!"
 }
 st.info(proverbs[language])
 
-# --- Translation Copy Framework ---
 if language == "English":
     lbl_tab1, lbl_tab2, lbl_tab3 = "📋 Advisory Core", "📅 Crop Scheduler", "💰 Ledger Financials"
     lbl_query = "Ask your farming question or simulate voice text:"
@@ -121,24 +119,19 @@ else:
 
 tab1, tab2, tab3 = st.tabs([lbl_tab1, lbl_tab2, lbl_tab3])
 
-# =====================================================================
-# 📋 TAB 1: LOCALIZED ADVISORY (RAG & VOICE SIMULATION)
-# =====================================================================
 with tab1:
     st.subheader(lbl_tab1)
-    
     selected_crop = st.radio(lbl_crop, ["Maize", "Cassava"])
     input_mode = st.radio("Input Method", ["Text Input", "Voice Simulation Input"])
     
     if input_mode == "Text Input":
         user_query = st.text_input(lbl_query, placeholder="e.g., my leaves have spots")
     else:
-        user_query = st.text_area(lbl_txt_voice, placeholder="e.g., 'I notice brown rings on my stalks' or 'I spent 5000 Naira on fertilizer'")
+        user_query = st.text_area(lbl_txt_voice, placeholder="e.g., 'I notice brown rings on my stalks'")
         
     if st.button(lbl_btn):
         if user_query:
             with st.spinner("Processing... / Yana kan aiki..."):
-                # Pull local contextual records down to pass into LLM context window safely
                 context_data = load_local_knowledge(selected_crop)
                 ai_answer = generate_response(user_query, context_data)
                 st.write("### 🤖 Response / Amsa:")
@@ -146,54 +139,34 @@ with tab1:
         else:
             st.warning("Please provide input text first!")
 
-# =====================================================================
-# 📅 TAB 2: MATHEMATICAL CROP MILESTONE TRACKING
-# =====================================================================
 with tab2:
     st.subheader(lbl_tab2)
     planting_date = st.date_input(lbl_date, datetime.date.today())
-    
     if st.button(lbl_calc):
-        # Precise calculations using clean Python datetime logic (zero RAM penalty)
         fert1_date = planting_date + datetime.timedelta(days=21)
         fert2_date = planting_date + datetime.timedelta(days=56)
         harvest_start = planting_date + datetime.timedelta(days=90)
         harvest_end = planting_date + datetime.timedelta(days=120)
         
-        st.success("🗓️ Crop Development Milestones Calculated Successfully!")
-        
+        st.success("🗓️ Crop Development Milestones Calculated!")
         schedule_data = {
             "Milestone Stage": ["First Fertilizer Pass", "Second Fertilizer Pass", "Harvest Window Opens", "Harvest Window Closes"],
             "Target Date": [fert1_date.strftime('%B %d, %Y'), fert2_date.strftime('%B %d, %Y'), harvest_start.strftime('%B %d, %Y'), harvest_end.strftime('%B %d, %Y')]
         }
-        df_schedule = pd.DataFrame(schedule_data)
-        st.table(df_schedule)
-        
-        # Export functionality directly to standard clean system files
-        report_text = f"Smart Farm Assistant - Schedule Report\nPlanting Date: {planting_date}\n" + df_schedule.to_string()
-        st.download_button("💾 Download Schedule to Desktop (.txt)", report_text, file_name="farm_schedule.txt")
+        st.table(pd.DataFrame(schedule_data))
 
-# =====================================================================
-# 💰 TAB 3: FINANCIAL LEDGER & OFFLINE CHARTS
-# =====================================================================
 with tab3:
     st.subheader(lbl_tab3)
-    
-    # Pre-populated localized ledger simulation data
     data = {
         'Category': ['Maize Sale', 'Cassava Sale', 'Seed Cost', 'Fertilizer Cost'],
         'Amount (Naira)': [45000, 32000, -12000, -15000]
     }
     df = pd.DataFrame(data)
     st.dataframe(df)
+    st.metric(label="Net Profit Margin (Balance)", value=f"₦ {df['Amount (Naira)'].sum():,} Naira")
     
-    total_net = df['Amount (Naira)'].sum()
-    st.metric(label="Net Profit Margin (Balance)", value=f"₦ {total_net:,} Naira")
-    
-    # Build light plotting assets completely locally using matplotlib
     fig, ax = plt.subplots(figsize=(6, 3))
     colors = ['green' if x > 0 else 'red' for x in df['Amount (Naira)']]
     ax.barh(df['Category'], df['Amount (Naira)'], color=colors)
     ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
-    plt.title("Financial Inflows vs Outflows")
     st.pyplot(fig)
