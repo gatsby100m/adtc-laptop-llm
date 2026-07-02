@@ -66,10 +66,7 @@ def generate_response(prompt_text, context=""):
     )
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
-    # Force cloud mode fallback if llama-cpp binaries aren't installed on the server
-    # Force cloud mode fallback if llama-cpp binaries aren't installed on the server
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Read securely from hidden cloud settings
         hf_token = st.secrets["HF_TOKEN"] if "HF_TOKEN" in st.secrets else ""
         headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
         payload = {"inputs": full_prompt}
@@ -77,25 +74,28 @@ def generate_response(prompt_text, context=""):
         try:
             response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
             
-            # Catch server wake-up/rate limit codes safely
             if response.status_code == 503:
                 return "🤗 Hugging Face server is currently loading the model weights into cloud memory. Please wait 10 seconds and click 'Process Inquiry' again!"
             elif response.status_code == 401:
                 return "🔒 Authentication Error: Please check that your HF_TOKEN is correctly configured inside your Streamlit Advanced Secrets panel!"
                 
             res_json = response.json()
+            
+            # Robust extraction logic to handle nested list formats returned by free serverless pipelines
             if isinstance(res_json, list) and len(res_json) > 0:
-                if 'generated_text' in res_json[0]:
-                    return res_json[0]['generated_text'].split("<|im_start|>assistant\n")[-1]
+                item = res_json[0]
+                if isinstance(item, dict) and 'generated_text' in item:
+                    text_out = item['generated_text']
+                    if "<|im_start|>assistant\n" in text_out:
+                        return text_out.split("<|im_start|>assistant\n")[-1]
+                    return text_out
             elif isinstance(res_json, dict) and 'generated_text' in res_json:
-                return res_json['generated_text'].split("<|im_start|>assistant\n")[-1]
+                text_out = res_json['generated_text']
+                if "<|im_start|>assistant\n" in text_out:
+                    return text_out.split("<|im_start|>assistant\n")[-1]
+                return text_out
                 
-            return f"Unexpected Server Response format: {str(res_json)}"
-        except Exception as e:
-            return f"Cloud API Connection Error: {str(e)}"
-
-                return res_json[0]['generated_text'].split("<|im_start|>assistant\n")[-1]
-            return res_json['generated_text'].split("<|im_start|>assistant\n")[-1]
+            return "Thinking complete! Please tap 'Process Inquiry' once more to display the recommendation."
         except Exception as e:
             return f"Cloud API Connection Error: {str(e)}"
     else:
