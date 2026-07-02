@@ -1,0 +1,10 @@
+# Ignore local downloaded AI model files (GGUF weights)
+models/*.gguf
+
+# Ignore Python runtime cache files
+__pycache__/
+*.pyc
+
+# Ignore local virtual environments
+.venv/
+env/
