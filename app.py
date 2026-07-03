@@ -19,9 +19,6 @@ MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# Serverless inference URL routing matching standard open-source API specifications
-CLOUD_API_URL = f"https://huggingface.co"
-
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
 # =====================================================================
@@ -65,20 +62,26 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST:
-        # SECURE CHECK: Safely extract the secret from Streamlit Cloud dashboard settings
+        # SECURE CHECK: Extract token securely from Streamlit Cloud dashboard settings
         if "HF_TOKEN" in st.secrets:
             hf_token = st.secrets["HF_TOKEN"]
         else:
             return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
+
+        # FIXED BASE URL: Direct connection to the unified global serverless routing cluster
+        FIXED_CLOUD_URL = "https://huggingface.co"
 
         headers = {
             "Authorization": f"Bearer {hf_token}",
             "Content-Type": "application/json"
         }
         
-        # Formatted using OpenAI/HF-compatible ChatCompletion schema for maximum system compatibility
+        # CLEAN ARCHITECTURE: Uses vanilla base model string. The provider backend auto-routes it.
+        # This translates "Qwen/Qwen2.5-0.5B-Instruct-GGUF" to "Qwen/Qwen2.5-0.5B-Instruct" for cloud calls.
+        cloud_model_name = MODEL_REPO.replace("-GGUF", "")
+
         payload = {
-            "model": MODEL_REPO.replace("-GGUF", ""), # Strip extension if needed by cloud serverless engine
+            "model": cloud_model_name,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt_text}
@@ -87,11 +90,13 @@ def generate_response(prompt_text, context=""):
         }
         
         try:
-            response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
+            # Make standard POST call into Hugging Face routing infrastructure
+            response = requests.post(FIXED_CLOUD_URL, json=payload, headers=headers, timeout=15)
             response.raise_for_status()
             res_json = response.json()
-            return res_json['choices'][0]['message']['content']
+            return res_json['choices']['message']['content']
         except Exception as e:
+            # Captures explicit network messages if token permission issues still persist
             return f"Cloud API Connection Error: {str(e)}"
     else:
         ensure_local_model_exists()
@@ -187,6 +192,3 @@ with tab2:
         }
         df_schedule = pd.DataFrame(schedule_data)
         st.table(df_schedule)
-        
-        # Export functionality directly to standard clean system files
-        report_text = f"Smart Farm Assistant - Schedule Report\nPlanting Date: {planting_date}\n" + df_schedule.to_string()
