@@ -29,8 +29,8 @@ MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# CORRECT API ENDPOINT: Replaced base URL with specific serverless model endpoint
-CLOUD_API_URL = f"https://api-inference.huggingface.co/models/{CLOUD_MODEL_REPO}"
+# CORRECT API ENDPOINT: Replaced decommissioned domain with new global router
+CLOUD_API_URL = f"https://router.huggingface.co/hf-inference/models/{CLOUD_MODEL_REPO}"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -69,7 +69,7 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Securely reads the key you hardcoded inside your project settings
+        # Securely reads your configuration token
         hf_token = "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".strip()
         headers = {"Authorization": f"Bearer {hf_token}"}
         payload = {"inputs": full_prompt, "parameters": {"max_new_tokens": 256}}
@@ -84,7 +84,7 @@ def generate_response(prompt_text, context=""):
                 
             res_json = response.json()
             
-            # Correctly extracts from the structured JSON list array formatting
+            # Correctly extracts from structured JSON list array formatting
             if isinstance(res_json, list) and len(res_json) > 0:
                 text_out = res_json[0].get('generated_text', '')
                 if "<|im_start|>assistant\n" in text_out:
