@@ -4,7 +4,7 @@ import requests
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, InferenceClient  # Added InferenceClient wrapper
 from llama_cpp import Llama
 
 # =====================================================================
@@ -68,34 +68,22 @@ def generate_response(prompt_text, context=""):
         else:
             return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
 
-        # FIXED BASE URL: Direct connection to the unified global serverless routing cluster
-        FIXED_CLOUD_URL = "https://huggingface.co"
-
-
-        headers = {
-            "Authorization": f"Bearer {hf_token}",
-            "Content-Type": "application/json"
-        }
-        
         # CLEAN ARCHITECTURE: Uses vanilla base model string. The provider backend auto-routes it.
-        # This translates "Qwen/Qwen2.5-0.5B-Instruct-GGUF" to "Qwen/Qwen2.5-0.5B-Instruct" for cloud calls.
         cloud_model_name = MODEL_REPO.replace("-GGUF", "")
-
-        payload = {
-            "model": cloud_model_name,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt_text}
-            ],
-            "max_tokens": 300
-        }
         
         try:
-            # Make standard POST call into Hugging Face routing infrastructure
-            response = requests.post(FIXED_CLOUD_URL, json=payload, headers=headers, timeout=15)
-            response.raise_for_status()
-            res_json = response.json()
-            return res_json['choices']['message']['content']
+            # OFFICIAL HUB CLIENT ROUTINE: Uses native huggingface_hub client mapping wrapper
+            client = InferenceClient(model=cloud_model_name, token=hf_token)
+            
+            # Request conversational completions from serverless providers infrastructure
+            response = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt_text}
+                ],
+                max_tokens=300
+            )
+            return response.choices[0].message.content
         except Exception as e:
             # Captures explicit network messages if token permission issues still persist
             return f"Cloud API Connection Error: {str(e)}"
