@@ -63,7 +63,7 @@ if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
 
 # ==========================================
-# 🌐 TRANSLATION ENGINEDICTIONARIES
+# 🌐 TRANSLATION DICTIONARIES
 # ==========================================
 LANG_DICT = {
     "English": {
@@ -146,7 +146,7 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     """Extracts values via localized regex parsing to safeguard memory spaces."""
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
-    amount = numbers[0] if numbers else 0.0
+    amount = sum(numbers) if numbers else 0.0
     
     stmt_lower = statement.lower()
     if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
@@ -162,7 +162,7 @@ def parse_financial_statement(statement):
 st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
 # Top Header Toolbar Area
-col_lang, col_prov = st.columns([1, 3])
+col_lang, col_prov = st.columns(2)
 with col_lang:
     selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
 
@@ -188,7 +188,6 @@ with tab1:
     audio_file = st.audio_input("🎙️ Speak into the microphone (Simulated Offline File)")
     if audio_file is not None:
         user_query = "cassava yellow spots"  # Mock fallback voice text mapping
-        # Zero Storage Bloat check: Streamlit handles memory file buffers without keeping physical disk tracks
         
     if st.button(labels["submit_btn"], type="primary"):
         if user_query:
@@ -204,7 +203,6 @@ with tab2:
     selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
     input_date = st.date_input(labels["date_input"], datetime.date.today())
     
-    timeline_result = ""
     if st.button(labels["calc_btn"]):
         timeline_result = calculate_crop_timeline(selected_crop, input_date)
         st.success(timeline_result)
@@ -225,6 +223,5 @@ with tab3:
                 st.warning("Please type a statement.")
                 
         net_profit = st.session_state.revenue - st.session_state.expenses
-        ledger_summary = (
-            f"### Current Farm Balance Sheet\n"
-            f"* **Total Revenue:** {st.session_state.revenue:,.2f} Naira\n"
+        
+        # Flattened single-line assignment string to prevent bracket indentation errors
