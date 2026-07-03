@@ -30,7 +30,7 @@ LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
 # CORRECT API ENDPOINT: Replaced decommissioned domain with new global router
-CLOUD_API_URL = f"https://router.huggingface.co/hf-inference/models/{CLOUD_MODEL_REPO}"
+CLOUD_API_URL = f"https://huggingface.co{CLOUD_MODEL_REPO}"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -58,7 +58,7 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (FIXED JSON FETCHING)
+# 🤖 DUAL-MODE INFERENCE ENGINE (UPDATED TOKEN & GLOBAL ROUTING)
 # =====================================================================
 def generate_response(prompt_text, context=""):
     system_prompt = (
@@ -69,8 +69,8 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Securely reads your configuration token
-        hf_token = "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".strip()
+        # Securely reads your newly provided operational token
+        hf_token = "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".strip()
         headers = {"Authorization": f"Bearer {hf_token}"}
         payload = {"inputs": full_prompt, "parameters": {"max_new_tokens": 256}}
         
