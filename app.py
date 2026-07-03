@@ -222,4 +222,12 @@ with tab3:
                 
         net_profit = st.session_state.revenue - st.session_state.expenses
         
+        st.markdown("### Current Farm Balance Sheet")
+        st.metric(label="Total Revenue (Naira)", value=f"{st.session_state.revenue:,.2f}")
+        st.metric(label="Total Expenses (Naira)", value=f"{st.session_state.expenses:,.2f}")
+        st.metric(label="Net Profit Margin (Naira)", value=f"{net_profit:,.2f}")
         
+        st.session_state["last_ledger"] = f"Rev: {st.session_state.revenue} | Exp: {st.session_state.expenses} | Profit: {net_profit}"
+
+    with col_chart:
+        fig, ax = plt.subplots(figsize=(4, 3))
