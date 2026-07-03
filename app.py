@@ -4,22 +4,31 @@ import datetime
 import time
 import streamlit as st
 import matplotlib.pyplot as plt
-from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 
 # ==========================================
-# ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
+# 🛡️ CLOUD CONSTRAINTS & DEPENDENCY SAFETY
 # ==========================================
+# Safely capture missing local modules to pass Streamlit Cloud resource limits
+try:
+    from llama_cpp import Llama
+    LLAMA_AVAILABLE = True
+except ImportError:
+    LLAMA_AVAILABLE = False
+
 MODEL_DIR = "models"
 MODEL_NAME = "Qwen1.5-0.5B-Chat-Q4_K_M.gguf"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
 @st.cache_resource
 def initialize_offline_cores():
-    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
+    """Checks local storage; safely handles missing components on cloud deployments."""
+    if not LLAMA_AVAILABLE:
+        return None  # Pass silently if running on resource-constrained cloud servers
+        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
+        with st.spinner("📦 First-time launch: Downloading 0.5B model..."):
             try:
                 hf_hub_download(
                     repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
@@ -28,7 +37,7 @@ def initialize_offline_cores():
                     local_dir_use_symlinks=False
                 )
             except Exception as e:
-                st.error(f"Failed to auto-download model. Please check connectivity for first launch: {e}")
+                st.error(f"Download issue: {e}")
                 return None
 
     try:
@@ -112,7 +121,7 @@ def run_ai_advisory(user_input, lang):
     cultural_closing = "\n\n🌍 *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n🌍 *May your harvest be heavy and rewarding!*"
 
     if llm is None:
-        return f"[Demo Mode]\n\n**Advice:** {matched_fact}{cultural_closing}"
+        return f"💡 **Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).* {cultural_closing}"
 
     prompt = f"System: You are an African farming assistant. Use this factsheet: {matched_fact}\nUser: {user_input}\nAssistant:"
     response = llm(prompt, max_tokens=150, stop=["User:", "System:"], echo=False)
@@ -213,17 +222,12 @@ with tab3:
                 
         net_profit = st.session_state.revenue - st.session_state.expenses
         
-        # Completely block out any normal formatting syntax to instantly kill parsing cache bugs
         st.markdown("### Current Farm Balance Sheet")
         st.metric(label="Total Revenue (Naira)", value=f"{st.session_state.revenue:,.2f}")
         st.metric(label="Total Expenses (Naira)", value=f"{st.session_state.expenses:,.2f}")
         st.metric(label="Net Profit Margin (Naira)", value=f"{net_profit:,.2f}")
         
-        # Clean plain assignment fallback report tracking
         st.session_state["last_ledger"] = f"Rev: {st.session_state.revenue} | Exp: {st.session_state.expenses} | Profit: {net_profit}"
 
     with col_chart:
         fig, ax = plt.subplots(figsize=(4, 3))
-        categories = ['Revenue (Green)', 'Expenses (Red)']
-        values = [st.session_state.revenue, st.session_state.expenses]
-        colors = ['#2ecc71', '#e74c3c']
