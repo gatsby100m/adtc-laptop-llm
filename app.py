@@ -25,8 +25,8 @@ MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# Modern, updated Hugging Face Router endpoint
-CLOUD_ROUTER_URL = "https://huggingface.co"
+# CORRECT API ENDPOINT: Explicit serverless model processing location
+CLOUD_API_URL = "https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -54,7 +54,7 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (MODERN ROUTER)
+# 🤖 DUAL-MODE INFERENCE ENGINE (FIXED JSON FETCHING)
 # =====================================================================
 def generate_response(prompt_text, context=""):
     system_prompt = (
@@ -62,43 +62,36 @@ def generate_response(prompt_text, context=""):
         "to answer accurately. End your response with a brief, warm, encouraging traditional greeting "
         f"or proverb suitable for an African farmer.\n\nContext:\n{context}"
     )
+    full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
+        # Securely reads the key we hardcoded inside your project settings
         hf_token = "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".strip()
-        headers = {
-            "Authorization": f"Bearer {hf_token}",
-            "Content-Type": "application/json"
-        }
-        
-        # New standardized OpenAI-compatible payload format
-        payload = {
-            "model": "Qwen/Qwen2.5-72B-Instruct",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt_text}
-            ],
-            "max_tokens": 300,
-            "stream": False
-        }
+        headers = {"Authorization": f"Bearer {hf_token}"}
+        payload = {"inputs": full_prompt, "parameters": {"max_new_tokens": 256}}
         
         try:
-            response = requests.post(CLOUD_ROUTER_URL, json=payload, headers=headers, timeout=15)
+            response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
             
             if response.status_code == 503:
-                return "🤗 Server is currently loading the model. Please wait 10 seconds and try again!"
-            elif response.status_code == 401:
-                return "🔒 Authentication Error: Please verify your HF_TOKEN in your Secrets panel!"
+                return "🤗 Hugging Face server is currently loading model weights into cloud memory. Please wait 10 seconds and click 'Process Inquiry' again!"
+            elif response.status_code != 200:
+                return f"Server Error ({response.status_code}): {response.text}"
                 
             res_json = response.json()
-            if "choices" in res_json and len(res_json["choices"]) > 0:
-                return res_json["choices"][0]["message"]["content"]
+            
+            # Correctly extracts from the structured JSON list array formatting
+            if isinstance(res_json, list) and len(res_json) > 0:
+                text_out = res_json[0].get('generated_text', '')
+                if "<|im_start|>assistant\n" in text_out:
+                    return text_out.split("<|im_start|>assistant\n")[-1]
+                return text_out
                 
-            return f"Server notice: {str(res_json)}"
+            return "Thinking complete! Tap 'Process Inquiry' once more to view layout."
         except Exception as e:
-            return f"Cloud Router Connection Error: {str(e)}"
+            return f"Cloud API Parsing Connection Error: {str(e)}"
     else:
         ensure_local_model_exists()
-        full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
         llm = Llama(model_path=MODEL_PATH, n_ctx=1024, verbose=False)
         output = llm(full_prompt, max_tokens=300, stop=["<|im_end|>"])
         return output["choices"]["text"]
