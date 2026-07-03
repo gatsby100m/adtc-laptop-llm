@@ -9,8 +9,6 @@ from huggingface_hub import hf_hub_download
 # =====================================================================
 # 🛡️ SAFE CRASH-PROOF BINDING LOADER
 # =====================================================================
-# This try-except block prevents Streamlit Cloud from crashing 
-# while maintaining the offline engine for the judge's laptop execution.
 try:
     from llama_cpp import Llama
     LLAMA_AVAILABLE = True
@@ -20,15 +18,15 @@ except ImportError:
 # =====================================================================
 # ⚙️ CONFIGURATION & HACKATHON FLAGS
 # =====================================================================
-# True = Runs instantly in the cloud via API. 
-# False = Runs 100% offline on a local laptop using GGUF.
 RUN_IN_CLOUD_FIRST = True  
 
 MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
-CLOUD_API_URL = "https://huggingface.co"
+
+# Modern, updated Hugging Face Router endpoint
+CLOUD_ROUTER_URL = "https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -56,7 +54,7 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE
+# 🤖 DUAL-MODE INFERENCE ENGINE (MODERN ROUTER)
 # =====================================================================
 def generate_response(prompt_text, context=""):
     system_prompt = (
@@ -64,42 +62,43 @@ def generate_response(prompt_text, context=""):
         "to answer accurately. End your response with a brief, warm, encouraging traditional greeting "
         f"or proverb suitable for an African farmer.\n\nContext:\n{context}"
     )
-    full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
         hf_token = st.secrets["HF_TOKEN"] if "HF_TOKEN" in st.secrets else ""
-        headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
-        payload = {"inputs": full_prompt}
+        headers = {
+            "Authorization": f"Bearer {hf_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # New standardized OpenAI-compatible payload format
+        payload = {
+            "model": "Qwen/Qwen2.5-72B-Instruct",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_text}
+            ],
+            "max_tokens": 300,
+            "stream": False
+        }
         
         try:
-            response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
+            response = requests.post(CLOUD_ROUTER_URL, json=payload, headers=headers, timeout=15)
             
             if response.status_code == 503:
-                return "🤗 Hugging Face server is currently loading the model weights into cloud memory. Please wait 10 seconds and click 'Process Inquiry' again!"
+                return "🤗 Server is currently loading the model. Please wait 10 seconds and try again!"
             elif response.status_code == 401:
-                return "🔒 Authentication Error: Please check that your HF_TOKEN is correctly configured inside your Streamlit Advanced Secrets panel!"
+                return "🔒 Authentication Error: Please verify your HF_TOKEN in your Secrets panel!"
                 
             res_json = response.json()
-            
-            # Robust extraction logic to handle nested list formats returned by free serverless pipelines
-            if isinstance(res_json, list) and len(res_json) > 0:
-                item = res_json[0]
-                if isinstance(item, dict) and 'generated_text' in item:
-                    text_out = item['generated_text']
-                    if "<|im_start|>assistant\n" in text_out:
-                        return text_out.split("<|im_start|>assistant\n")[-1]
-                    return text_out
-            elif isinstance(res_json, dict) and 'generated_text' in res_json:
-                text_out = res_json['generated_text']
-                if "<|im_start|>assistant\n" in text_out:
-                    return text_out.split("<|im_start|>assistant\n")[-1]
-                return text_out
+            if "choices" in res_json and len(res_json["choices"]) > 0:
+                return res_json["choices"][0]["message"]["content"]
                 
-            return "Thinking complete! Please tap 'Process Inquiry' once more to display the recommendation."
+            return f"Server notice: {str(res_json)}"
         except Exception as e:
-            return f"Cloud API Connection Error: {str(e)}"
+            return f"Cloud Router Connection Error: {str(e)}"
     else:
         ensure_local_model_exists()
+        full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
         llm = Llama(model_path=MODEL_PATH, n_ctx=1024, verbose=False)
         output = llm(full_prompt, max_tokens=300, stop=["<|im_end|>"])
         return output["choices"]["text"]
