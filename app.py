@@ -71,6 +71,7 @@ def generate_response(prompt_text, context=""):
         # FIXED BASE URL: Direct connection to the unified global serverless routing cluster
         FIXED_CLOUD_URL = "https://huggingface.co"
 
+
         headers = {
             "Authorization": f"Bearer {hf_token}",
             "Content-Type": "application/json"
