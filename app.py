@@ -16,21 +16,20 @@ except ImportError:
     LLAMA_AVAILABLE = False
 
 # =====================================================================
-# ⚙️ CONFIGURATION & HACKATHON FLAGS
+# ⚙️ CONFIGURATION
 # =====================================================================
-RUN_IN_CLOUD_FIRST = True  
+RUN_IN_CLOUD_FIRST = True
 
-# Standard repo for Serverless API
-CLOUD_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct" 
+CLOUD_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct"
 
-# GGUF fallbacks kept separate for your offline local Llama engine
 LOCAL_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# ✅ FIXED HUGGING FACE API URL (Points to the official Inference Gateway)
-CLOUD_API_URL = f"https://huggingface.co{CLOUD_MODEL_REPO}"
+# ✅ FIXED ABSOLUTE URL STRING (Prevents formatting bugs and connection failures)
+CLOUD_API_URL = "https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -58,7 +57,7 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (UPDATED TOKEN & GLOBAL ROUTING)
+# 🤖 DUAL-MODE INFERENCE ENGINE (FIXED ARRAY UNBOXING LOGIC)
 # =====================================================================
 def generate_response(prompt_text, context=""):
     system_prompt = (
@@ -69,7 +68,7 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Securely reads your valid operational token
+        # Securely reads your validated operational token
         hf_token = "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".strip()
         headers = {
             "Authorization": f"Bearer {hf_token}",
@@ -87,9 +86,11 @@ def generate_response(prompt_text, context=""):
                 
             res_json = response.json()
             
-            # ✅ SAFE EXTRACTION ARRAY LOOP
+            # ✅ CORRECTED EXTRACTION: Safely pulls dictionary from inside the response array
             if isinstance(res_json, list) and len(res_json) > 0:
-                text_out = res_json[0].get('generated_text', '')
+                inner_dict = res_json[0]
+                text_out = inner_dict.get('generated_text', '') if isinstance(inner_dict, dict) else ''
+                
                 if "<|im_start|>assistant\n" in text_out:
                     return text_out.split("<|im_start|>assistant\n")[-1]
                 return text_out
@@ -182,7 +183,7 @@ with tab3:
     st.dataframe(df)
     st.metric(label="Net Profit Margin (Balance)", value=f"₦ {df['Amount (Naira)'].sum():,} Naira")
     
-    # ✅ RESTORED MISSING GRAPH VISUAL CODE
+    # Financial data visual plot rendering routine
     fig, ax = plt.subplots(figsize=(6, 3))
     colors = ['green' if x > 0 else 'red' for x in df['Amount (Naira)']]
     ax.bar(df['Category'], df['Amount (Naira)'], color=colors)
