@@ -21,7 +21,6 @@ def initialize_offline_cores():
         os.makedirs(MODEL_DIR, exist_ok=True)
         with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
             try:
-                # Downloads model securely to your local directory
                 hf_hub_download(
                     repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
                     filename=MODEL_NAME,
@@ -32,7 +31,6 @@ def initialize_offline_cores():
                 st.error(f"Failed to auto-download model. Please check connectivity for first launch: {e}")
                 return None
 
-    # Load local model with explicit 1024 token capping for 4GB/8GB RAM
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
@@ -56,7 +54,6 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# Session State for Local Financial Ledger
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
@@ -104,7 +101,6 @@ LANG_DICT = {
 # 🛠️ HELPER FUNCTIONS
 # ==========================================
 def run_ai_advisory(user_input, lang):
-    """Applies local text verification (RAG) and structured LLM inference context."""
     clean_input = user_input.lower().strip()
     matched_fact = "Follow clean agricultural standards and keep fields well weeded."
     
@@ -123,7 +119,6 @@ def run_ai_advisory(user_input, lang):
     return f"{response['choices']['text'].strip()}{cultural_closing}"
 
 def calculate_crop_timeline(crop, start_date):
-    """Executes deterministic milestone calculations via standard Python date math."""
     if crop == "Maize":
         fert1 = start_date + datetime.timedelta(days=21)
         fert2 = start_date + datetime.timedelta(days=42)
@@ -135,16 +130,15 @@ def calculate_crop_timeline(crop, start_date):
         harvest_start = start_date + datetime.timedelta(days=270)
         harvest_end = start_date + datetime.timedelta(days=360)
 
-    return (
-        f"📅 Official {crop} Production Timeline:\n"
-        f"• Planting Date: {start_date.strftime('%d %B %Y')}\n"
-        f"• 🚨 First Fertilizer Window: {fert1.strftime('%d %B %Y')}\n"
-        f"• 🚨 Second Fertilizer Window: {fert2.strftime('%d %B %Y')}\n"
-        f"• 🌾 Optimal Harvest Window: {harvest_start.strftime('%d %B %Y')} to {harvest_end.strftime('%d %B %Y')}"
-    )
+    # Completely linear single-string construction format to guarantee validation passes
+    line1 = f"📅 Official {crop} Production Timeline:\n"
+    line2 = f"• Planting Date: {start_date.strftime('%d %B %Y')}\n"
+    line3 = f"• 🚨 First Fertilizer Window: {fert1.strftime('%d %B %Y')}\n"
+    line4 = f"• 🚨 Second Fertilizer Window: {fert2.strftime('%d %B %Y')}\n"
+    line5 = f"• 🌾 Optimal Harvest Window: {harvest_start.strftime('%d %B %Y')} to {harvest_end.strftime('%d %B %Y')}"
+    return line1 + line2 + line3 + line4 + line5
 
 def parse_financial_statement(statement):
-    """Extracts values via localized regex parsing to safeguard memory spaces."""
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
     
@@ -161,7 +155,6 @@ def parse_financial_statement(statement):
 # ==========================================
 st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
-# Top Header Toolbar Area
 col_lang, col_prov = st.columns(2)
 with col_lang:
     selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
@@ -169,14 +162,12 @@ with col_lang:
 labels = LANG_DICT[selected_lang]
 
 with col_prov:
-    # Basic time-rotation for rotating rolling dynamic proverbs
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
     st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
 
 st.title(labels["title"])
 st.caption(labels["subtitle"])
 
-# Clear UI Tab Layout Splitting
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- TAB 1: AI SOLUTION DIAGNOSIS ---
@@ -184,10 +175,9 @@ with tab1:
     st.subheader(labels["diagnose_tab"])
     user_query = st.text_input(labels["symptom_label"], placeholder="Type symptoms or simulated voice transcription here...")
     
-    # Simple simulated audio component block
     audio_file = st.audio_input("🎙️ Speak into the microphone (Simulated Offline File)")
     if audio_file is not None:
-        user_query = "cassava yellow spots"  # Mock fallback voice text mapping
+        user_query = "cassava yellow spots"
         
     if st.button(labels["submit_btn"], type="primary"):
         if user_query:
@@ -224,4 +214,19 @@ with tab3:
                 
         net_profit = st.session_state.revenue - st.session_state.expenses
         
-        # Flattened single-line assignment string to prevent bracket indentation errors
+        # Plain simple f-string declaration line (No parenthetical blocks)
+        ledger_summary = f"### Current Farm Balance Sheet\n* **Total Revenue:** {st.session_state.revenue:,.2f} Naira\n* **Total Expenses:** {st.session_state.expenses:,.2f} Naira\n\n👉 **Net Profit Margin:** {net_profit:,.2f} Naira"
+        st.markdown(ledger_summary)
+        st.session_state["last_ledger"] = ledger_summary
+
+    with col_chart:
+        fig, ax = plt.subplots(figsize=(4, 3))
+        categories = ['Revenue (Green)', 'Expenses (Red)']
+        values = [st.session_state.revenue, st.session_state.expenses]
+        colors = ['#2ecc71', '#e74c3c']
+        ax.bar(categories, values, color=colors)
+        ax.set_ylabel('Naira Value')
+        st.pyplot(fig)
+        plt.close(fig)
+
+# --- GLOBAL EXPORT SYSTEM REGION ---
