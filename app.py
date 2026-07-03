@@ -1,13 +1,12 @@
 import os
 import datetime
-import requests
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from huggingface_hub import hf_hub_download
+from huggingface_hub import InferenceClient
 
 # =====================================================================
-# 🛡️ SAFE CRASH-PROOF BINDING LOADER
+# 🛡️ SAFE CRASH-PROOF BINDING LOADER (Kept for offline flexibility)
 # =====================================================================
 try:
     from llama_cpp import Llama
@@ -21,15 +20,11 @@ except ImportError:
 RUN_IN_CLOUD_FIRST = True
 
 CLOUD_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct"
-
 LOCAL_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
-
-# ✅ FIXED ABSOLUTE URL STRING (Prevents formatting bugs and connection failures)
-CLOUD_API_URL = "https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -47,6 +42,7 @@ def load_local_knowledge(crop_type):
 def ensure_local_model_exists():
     if not os.path.exists(MODEL_PATH):
         with st.spinner("📦 First boot detected! Downloading ultra-lightweight 0.5B LLM weights..."):
+            from huggingface_hub import hf_hub_download
             os.makedirs(LOCAL_MODELS_DIR, exist_ok=True)
             hf_hub_download(
                 repo_id=LOCAL_MODEL_REPO, 
@@ -57,7 +53,7 @@ def ensure_local_model_exists():
         st.success("🎉 Download complete! Model saved completely offline.")
 
 # =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (FIXED ARRAY UNBOXING LOGIC)
+# 🤖 MODERN DUAL-MODE INFERENCE ENGINE (Bypasses CloudFront URL Blocks)
 # =====================================================================
 def generate_response(prompt_text, context=""):
     system_prompt = (
@@ -68,41 +64,38 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Securely reads your validated operational token
+        # Securely reads your operational token string
         hf_token = "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".strip()
-        headers = {
-            "Authorization": f"Bearer {hf_token}",
-            "Content-Type": "application/json"
-        }
-        payload = {"inputs": full_prompt, "parameters": {"max_new_tokens": 256}}
         
         try:
-            response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
+            # ✅ FIX: Native InferenceClient interface targeting the active Hugging Face routing layers
+            client = InferenceClient(
+                model=CLOUD_MODEL_REPO,
+                token=hf_token,
+                timeout=20
+            )
             
-            if response.status_code == 503:
-                return "🤗 Hugging Face server is currently loading model weights into cloud memory. Please wait 10 seconds and click 'Process Inquiry' again!"
-            elif response.status_code != 200:
-                return f"Server Error ({response.status_code}): {response.text}"
-                
-            res_json = response.json()
+            # ✅ FIX: Safe textual parameters object extraction
+            output = client.text_generation(
+                prompt=full_prompt,
+                max_new_tokens=256
+            )
             
-            # ✅ CORRECTED EXTRACTION: Safely pulls dictionary from inside the response array
-            if isinstance(res_json, list) and len(res_json) > 0:
-                inner_dict = res_json[0]
-                text_out = inner_dict.get('generated_text', '') if isinstance(inner_dict, dict) else ''
-                
-                if "<|im_start|>assistant\n" in text_out:
-                    return text_out.split("<|im_start|>assistant\n")[-1]
-                return text_out
-                
-            return "Thinking complete! Tap 'Process Inquiry' once more to view layout."
+            # Clean up the output token strings out of visual layout
+            if "<|im_start|>assistant\n" in output:
+                return output.split("<|im_start|>assistant\n")[-1]
+            return output
+            
         except Exception as e:
-            return f"Cloud API Parsing Connection Error: {str(e)}"
+            err_msg = str(e)
+            if "503" in err_msg or "loading" in err_msg.lower():
+                return "🤗 Hugging Face server is currently loading model weights into cloud memory. Please wait 10 seconds and click 'Process Inquiry' again!"
+            return f"⚠️ Cloud Connection Error: {err_msg}"
     else:
         ensure_local_model_exists()
         llm = Llama(model_path=MODEL_PATH, n_ctx=1024, verbose=False)
         output = llm(full_prompt, max_tokens=300, stop=["<|im_end|>"])
-        return output["choices"]["text"]
+        return output["choices"][0]["text"]
 
 # =====================================================================
 # 🎨 STREAMLIT GRAPHICAL INTERFACE
@@ -180,13 +173,8 @@ with tab3:
         'Amount (Naira)': [45000, 32000, -12000, -15000]
     }
     df = pd.DataFrame(data)
-    st.dataframe(df)
-    st.metric(label="Net Profit Margin (Balance)", value=f"₦ {df['Amount (Naira)'].sum():,} Naira")
+    st.table(df)
     
-    # Financial data visual plot rendering routine
-    fig, ax = plt.subplots(figsize=(6, 3))
-    colors = ['green' if x > 0 else 'red' for x in df['Amount (Naira)']]
-    ax.bar(df['Category'], df['Amount (Naira)'], color=colors)
-    ax.set_ylabel('Naira')
-    ax.set_title('Financial Overview')
-    st.pyplot(fig)
+    # Simple analytics breakdown visual anchor
+    total_profit = df['Amount (Naira)'].sum()
+    st.metric(label="Net Farming Yield Balance (Naira)", value=f"₦ {total_profit:,}")
