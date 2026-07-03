@@ -68,7 +68,7 @@ def generate_response(prompt_text, context=""):
         else:
             return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
 
-        # THE DIRECT API LINK: Standard fallback link structure to process raw inputs
+        # OFFICIAL DIRECT URL FORMAT: Maps the model ID cleanly inside the path string
         DIRECT_API_URL = "https://huggingface.co"
 
         headers = {
@@ -76,10 +76,13 @@ def generate_response(prompt_text, context=""):
             "Content-Type": "application/json"
         }
         
-        # Pure text layout configuration ensuring full model execution tracking compatibility
+        # OFFICIAL PAYLOAD FORMAT: Explicitly using the simple dictionary 'inputs' key structure
         payload = {
             "inputs": full_prompt,
-            "parameters": {"max_new_tokens": 300, "return_full_text": False}
+            "parameters": {
+                "max_new_tokens": 300,
+                "return_full_text": False
+            }
         }
         
         try:
@@ -87,7 +90,7 @@ def generate_response(prompt_text, context=""):
             response.raise_for_status()
             res_json = response.json()
             
-            # Unpack response formats dynamically across different framework versions
+            # Parse the response layout (text models return a dictionary inside a list)
             if isinstance(res_json, list) and len(res_json) > 0:
                 raw_out = res_json[0].get('generated_text', 'No response generated.')
             elif isinstance(res_json, dict) and 'generated_text' in res_json:
@@ -95,7 +98,7 @@ def generate_response(prompt_text, context=""):
             else:
                 raw_out = str(res_json)
                 
-            # String trimming to cleanly cut off any raw formatting token footprints left behind
+            # Clean up raw system tags from the chat assistant response string
             if "<|im_start|>assistant\n" in raw_out:
                 return raw_out.split("<|im_start|>assistant\n")[-1].replace("<|im_end|>", "").strip()
             return raw_out.replace("<|im_end|>", "").strip()
