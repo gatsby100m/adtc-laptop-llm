@@ -4,7 +4,7 @@ import requests
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, InferenceClient  # Added InferenceClient wrapper
 from llama_cpp import Llama
 
 # =====================================================================
@@ -68,42 +68,24 @@ def generate_response(prompt_text, context=""):
         else:
             return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
 
-        # OFFICIAL DIRECT URL FORMAT: Maps the model ID cleanly inside the path string
-        DIRECT_API_URL = "https://huggingface.co"
-
-        headers = {
-            "Authorization": f"Bearer {hf_token}",
-            "Content-Type": "application/json"
-        }
-        
-        # OFFICIAL PAYLOAD FORMAT: Explicitly using the simple dictionary 'inputs' key structure
-        payload = {
-            "inputs": full_prompt,
-            "parameters": {
-                "max_new_tokens": 300,
-                "return_full_text": False
-            }
-        }
+        # CLEAN ARCHITECTURE: Uses vanilla base model string. The provider backend auto-routes it.
+        cloud_model_name = MODEL_REPO.replace("-GGUF", "")
         
         try:
-            response = requests.post(DIRECT_API_URL, json=payload, headers=headers, timeout=15)
-            response.raise_for_status()
-            res_json = response.json()
+            # OFFICIAL HUB CLIENT ROUTINE: Uses native huggingface_hub client mapping wrapper
+            client = InferenceClient(model=cloud_model_name, token=hf_token)
             
-            # Parse the response layout (text models return a dictionary inside a list)
-            if isinstance(res_json, list) and len(res_json) > 0:
-                raw_out = res_json[0].get('generated_text', 'No response generated.')
-            elif isinstance(res_json, dict) and 'generated_text' in res_json:
-                raw_out = res_json['generated_text']
-            else:
-                raw_out = str(res_json)
-                
-            # Clean up raw system tags from the chat assistant response string
-            if "<|im_start|>assistant\n" in raw_out:
-                return raw_out.split("<|im_start|>assistant\n")[-1].replace("<|im_end|>", "").strip()
-            return raw_out.replace("<|im_end|>", "").strip()
-            
+            # Request conversational completions from serverless providers infrastructure
+            response = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt_text}
+                ],
+                max_tokens=300
+            )
+            return response.choices[0].message.content
         except Exception as e:
+            # Captures explicit network messages if token permission issues still persist
             return f"Cloud API Connection Error: {str(e)}"
     else:
         ensure_local_model_exists()
