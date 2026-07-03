@@ -224,6 +224,4 @@ with tab3:
         ledger_text = st.text_input(labels["ledger_input"], placeholder="I sold 5 bags of maize for 40000")
         if st.button(labels["log_btn"]):
             if ledger_text:
-                log_msg = parse_financial_statement(ledger_text)
-                st.toast(log_msg)
-            else:
+                
