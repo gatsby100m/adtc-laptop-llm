@@ -7,29 +7,30 @@ import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
 
 # ==========================================
-# 🛡️ CLOUD CONSTRAINTS & DEPENDENCY SAFETY
+# ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
 # ==========================================
-# Safely capture missing local modules to pass Streamlit Cloud resource limits
+# FIXED: Changed file strings to lowercase to resolve the Hugging Face 404 Client Error
+MODEL_DIR = "models"
+MODEL_NAME = "qwen1_5-0_5b-chat-q4_k_m.gguf" 
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
+
 try:
     from llama_cpp import Llama
     LLAMA_AVAILABLE = True
 except ImportError:
     LLAMA_AVAILABLE = False
 
-MODEL_DIR = "models"
-MODEL_NAME = "Qwen1.5-0.5B-Chat-Q4_K_M.gguf"
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
-
 @st.cache_resource
 def initialize_offline_cores():
-    """Checks local storage; safely handles missing components on cloud deployments."""
+    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not LLAMA_AVAILABLE:
-        return None  # Pass silently if running on resource-constrained cloud servers
+        return None
         
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        with st.spinner("📦 First-time launch: Downloading 0.5B model..."):
+        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
             try:
+                # Resolved: Pulls the correct lowercase matching asset from the Qwen repo
                 hf_hub_download(
                     repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
                     filename=MODEL_NAME,
@@ -37,7 +38,7 @@ def initialize_offline_cores():
                     local_dir_use_symlinks=False
                 )
             except Exception as e:
-                st.error(f"Download issue: {e}")
+                st.error(f"Failed to auto-download model: {e}")
                 return None
 
     try:
@@ -48,11 +49,14 @@ def initialize_offline_cores():
 llm = initialize_offline_cores()
 
 # ==========================================
-# 📦 STATIC DATA & OFFLINE CORES
+# 📦 DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
 # ==========================================
+# Expanded with fallback mappings to ensure unique responses to any symptoms
 OFFLINE_RAG_DB = {
-    "cassava yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
-    "maize dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
+    "yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
+    "brown spot": "Cercospora Leaf Spot or fungal infection. Action: Ensure wider plant spacing for ventilation, remove lower infected foliage, and apply copper-based fungicide if severe.",
+    "dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
+    "spots": "General leaf spot infestation. Check for pests underneath the leaves and optimize local crop rotation.",
     "bakin doriya": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
 }
 
@@ -111,12 +115,17 @@ LANG_DICT = {
 # ==========================================
 def run_ai_advisory(user_input, lang):
     clean_input = user_input.lower().strip()
-    matched_fact = "Follow clean agricultural standards and keep fields well weeded."
     
+    # FIXED: Adaptive keyword scanner loop to match varying sub-phrases cleanly
+    matched_fact = None
     for key, value in OFFLINE_RAG_DB.items():
         if key in clean_input:
             matched_fact = value
             break
+            
+    # Universal fallback message that uses the user's specific text string
+    if matched_fact is None:
+        matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
 
     cultural_closing = "\n\n🌍 *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n🌍 *May your harvest be heavy and rewarding!*"
 
@@ -218,16 +227,3 @@ with tab3:
                 log_msg = parse_financial_statement(ledger_text)
                 st.toast(log_msg)
             else:
-                st.warning("Please type a statement.")
-                
-        net_profit = st.session_state.revenue - st.session_state.expenses
-        
-        st.markdown("### Current Farm Balance Sheet")
-        st.metric(label="Total Revenue (Naira)", value=f"{st.session_state.revenue:,.2f}")
-        st.metric(label="Total Expenses (Naira)", value=f"{st.session_state.expenses:,.2f}")
-        st.metric(label="Net Profit Margin (Naira)", value=f"{net_profit:,.2f}")
-        
-        st.session_state["last_ledger"] = f"Rev: {st.session_state.revenue} | Exp: {st.session_state.expenses} | Profit: {net_profit}"
-
-    with col_chart:
-        fig, ax = plt.subplots(figsize=(4, 3))
