@@ -72,21 +72,17 @@ def generate_response(prompt_text, context=""):
         cloud_model_name = MODEL_REPO.replace("-GGUF", "")
         
         try:
-            # Replaced with your exact InferenceClient structure setup
-            client = InferenceClient(
-                provider="hf-inference",
-                api_key=hf_token,
-            )
+            # OFFICIAL HUB CLIENT ROUTINE: Uses native huggingface_hub client mapping wrapper
+            client = InferenceClient(model=cloud_model_name, token=hf_token)
             
+            # Request conversational completions from serverless providers infrastructure
             response = client.chat.completions.create(
-                model=cloud_model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt_text},
+                    {"role": "user", "content": prompt_text}
                 ],
-                max_tokens=300,
+                max_tokens=300
             )
-            
             return response.choices[0].message.content
         except Exception as e:
             # Captures explicit network messages if token permission issues still persist
@@ -179,14 +175,9 @@ with tab2:
         
         st.success("🗓️ Crop Development Milestones Calculated Successfully!")
         
-        # Display milestones in a readable format
-        st.write(f"**First Fertilization Window:** {fert1_date.strftime('%B %d, %Y')}")
-        st.write(f"**Second Fertilization Window:** {fert2_date.strftime('%B %d, %Y')}")
-        st.write(f"**Expected Harvest Period:** {harvest_start.strftime('%B %d, %Y')} to {harvest_end.strftime('%B %d, %Y')}")
-
-# =====================================================================
-# 💰 TAB 3: LEDGER FINANCIALS
-# =====================================================================
-with tab3:
-    st.subheader(lbl_tab3)
-    st.write("Financial Ledger dashboard placeholder module.")
+        schedule_data = {
+            "Milestone Stage": ["First Fertilizer Pass", "Second Fertilizer Pass", "Harvest Window Opens", "Harvest Window Closes"],
+            "Target Date": [fert1_date.strftime('%B %d, %Y'), fert2_date.strftime('%B %d, %Y'), harvest_start.strftime('%B %d, %Y'), harvest_end.strftime('%B %d, %Y')]
+        }
+        df_schedule = pd.DataFrame(schedule_data)
+        st.table(df_schedule)
