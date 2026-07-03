@@ -19,8 +19,8 @@ MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# Free backup API endpoint for cloud testing phase
-CLOUD_API_URL = "https://huggingface.co"
+# Serverless inference URL routing matching standard open-source API specifications
+CLOUD_API_URL = f"https://huggingface.co"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -65,13 +65,32 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST:
-        headers = {"Authorization": "Bearer YOUR_HF_API_KEY_HERE"}
-        payload = {"inputs": full_prompt}
+        # SECURE CHECK: Safely extract the secret from Streamlit Cloud dashboard settings
+        if "HF_TOKEN" in st.secrets:
+            hf_token = st.secrets["HF_TOKEN"]
+        else:
+            return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
+
+        headers = {
+            "Authorization": f"Bearer {hf_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Formatted using OpenAI/HF-compatible ChatCompletion schema for maximum system compatibility
+        payload = {
+            "model": MODEL_REPO.replace("-GGUF", ""), # Strip extension if needed by cloud serverless engine
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_text}
+            ],
+            "max_tokens": 300
+        }
+        
         try:
             response = requests.post(CLOUD_API_URL, json=payload, headers=headers, timeout=15)
-            # Basic fallback cleaner to parse output
-            text = response.json()[0]['generated_text'] if isinstance(response.json(), list) else response.json()['generated_text']
-            return text.split("<|im_start|>assistant\n")[-1]
+            response.raise_for_status()
+            res_json = response.json()
+            return res_json['choices'][0]['message']['content']
         except Exception as e:
             return f"Cloud API Connection Error: {str(e)}"
     else:
@@ -171,29 +190,3 @@ with tab2:
         
         # Export functionality directly to standard clean system files
         report_text = f"Smart Farm Assistant - Schedule Report\nPlanting Date: {planting_date}\n" + df_schedule.to_string()
-        st.download_button("💾 Download Schedule to Desktop (.txt)", report_text, file_name="farm_schedule.txt")
-
-# =====================================================================
-# 💰 TAB 3: FINANCIAL LEDGER & OFFLINE CHARTS
-# =====================================================================
-with tab3:
-    st.subheader(lbl_tab3)
-    
-    # Pre-populated localized ledger simulation data
-    data = {
-        'Category': ['Maize Sale', 'Cassava Sale', 'Seed Cost', 'Fertilizer Cost'],
-        'Amount (Naira)': [45000, 32000, -12000, -15000]
-    }
-    df = pd.DataFrame(data)
-    st.dataframe(df)
-    
-    total_net = df['Amount (Naira)'].sum()
-    st.metric(label="Net Profit Margin (Balance)", value=f"₦ {total_net:,} Naira")
-    
-    # Build light plotting assets completely locally using matplotlib
-    fig, ax = plt.subplots(figsize=(6, 3))
-    colors = ['green' if x > 0 else 'red' for x in df['Amount (Naira)']]
-    ax.barh(df['Category'], df['Amount (Naira)'], color=colors)
-    ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
-    plt.title("Financial Inflows vs Outflows")
-    st.pyplot(fig)
