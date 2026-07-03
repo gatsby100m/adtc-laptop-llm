@@ -64,7 +64,7 @@ def generate_response(prompt_text, context=""):
     )
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        hf_token = st.secrets["HF_TOKEN"] if "HF_TOKEN" in st.secrets else ""
+        hf_token = "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".strip()
         headers = {
             "Authorization": f"Bearer {hf_token}",
             "Content-Type": "application/json"
