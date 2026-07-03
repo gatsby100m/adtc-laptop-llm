@@ -3,4 +3,3 @@ pandas
 matplotlib
 requests
 huggingface_hub>=0.34.0
-llama-cpp-python
