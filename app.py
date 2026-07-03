@@ -220,8 +220,4 @@ with tab3:
     st.subheader(labels["finance_tab"])
     col_input, col_chart = st.columns(2)
     
-    with col_input:
-        ledger_text = st.text_input(labels["ledger_input"], placeholder="I sold 5 bags of maize for 40000")
-        if st.button(labels["log_btn"]):
-            if ledger_text:
-                
+    
