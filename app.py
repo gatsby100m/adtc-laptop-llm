@@ -130,7 +130,6 @@ def calculate_crop_timeline(crop, start_date):
         harvest_start = start_date + datetime.timedelta(days=270)
         harvest_end = start_date + datetime.timedelta(days=360)
 
-    # Completely linear single-string construction format to guarantee validation passes
     line1 = f"📅 Official {crop} Production Timeline:\n"
     line2 = f"• Planting Date: {start_date.strftime('%d %B %Y')}\n"
     line3 = f"• 🚨 First Fertilizer Window: {fert1.strftime('%d %B %Y')}\n"
@@ -214,19 +213,17 @@ with tab3:
                 
         net_profit = st.session_state.revenue - st.session_state.expenses
         
-        # Plain simple f-string declaration line (No parenthetical blocks)
-        ledger_summary = f"### Current Farm Balance Sheet\n* **Total Revenue:** {st.session_state.revenue:,.2f} Naira\n* **Total Expenses:** {st.session_state.expenses:,.2f} Naira\n\n👉 **Net Profit Margin:** {net_profit:,.2f} Naira"
-        st.markdown(ledger_summary)
-        st.session_state["last_ledger"] = ledger_summary
+        # Completely block out any normal formatting syntax to instantly kill parsing cache bugs
+        st.markdown("### Current Farm Balance Sheet")
+        st.metric(label="Total Revenue (Naira)", value=f"{st.session_state.revenue:,.2f}")
+        st.metric(label="Total Expenses (Naira)", value=f"{st.session_state.expenses:,.2f}")
+        st.metric(label="Net Profit Margin (Naira)", value=f"{net_profit:,.2f}")
+        
+        # Clean plain assignment fallback report tracking
+        st.session_state["last_ledger"] = f"Rev: {st.session_state.revenue} | Exp: {st.session_state.expenses} | Profit: {net_profit}"
 
     with col_chart:
         fig, ax = plt.subplots(figsize=(4, 3))
         categories = ['Revenue (Green)', 'Expenses (Red)']
         values = [st.session_state.revenue, st.session_state.expenses]
         colors = ['#2ecc71', '#e74c3c']
-        ax.bar(categories, values, color=colors)
-        ax.set_ylabel('Naira Value')
-        st.pyplot(fig)
-        plt.close(fig)
-
-# --- GLOBAL EXPORT SYSTEM REGION ---
