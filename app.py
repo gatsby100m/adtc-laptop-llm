@@ -20,13 +20,17 @@ except ImportError:
 # =====================================================================
 RUN_IN_CLOUD_FIRST = True  
 
-MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+# Standard repo for Serverless API
+CLOUD_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct" 
+
+# GGUF fallbacks kept separate for your offline local Llama engine
+LOCAL_MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
 MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 LOCAL_MODELS_DIR = "models"
 MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
 
-# CORRECT API ENDPOINT: Explicit serverless model processing location
-CLOUD_API_URL = "https://huggingface.co"
+# CORRECT API ENDPOINT: Replaced base URL with specific serverless model endpoint
+CLOUD_API_URL = f"https://api-inference.huggingface.co/models/{CLOUD_MODEL_REPO}"
 
 # =====================================================================
 # 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
@@ -46,7 +50,7 @@ def ensure_local_model_exists():
         with st.spinner("📦 First boot detected! Downloading ultra-lightweight 0.5B LLM weights..."):
             os.makedirs(LOCAL_MODELS_DIR, exist_ok=True)
             hf_hub_download(
-                repo_id=MODEL_REPO,
+                repo_id=LOCAL_MODEL_REPO, 
                 filename=MODEL_FILE,
                 local_dir=LOCAL_MODELS_DIR,
                 local_dir_use_symlinks=False
@@ -65,7 +69,7 @@ def generate_response(prompt_text, context=""):
     full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
 
     if RUN_IN_CLOUD_FIRST or not LLAMA_AVAILABLE:
-        # Securely reads the key we hardcoded inside your project settings
+        # Securely reads the key you hardcoded inside your project settings
         hf_token = "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".strip()
         headers = {"Authorization": f"Bearer {hf_token}"}
         payload = {"inputs": full_prompt, "parameters": {"max_new_tokens": 256}}
@@ -177,6 +181,7 @@ with tab3:
     
     fig, ax = plt.subplots(figsize=(6, 3))
     colors = ['green' if x > 0 else 'red' for x in df['Amount (Naira)']]
-    ax.barh(df['Category'], df['Amount (Naira)'], color=colors)
-    ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
+    ax.bar(df['Category'], df['Amount (Naira)'], color=colors)
+    ax.set_ylabel('Naira')
+    ax.set_title('Financial Overview')
     st.pyplot(fig)
