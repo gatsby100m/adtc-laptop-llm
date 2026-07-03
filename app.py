@@ -1,192 +1,230 @@
 import os
+import re
 import datetime
-import requests
+import time
 import streamlit as st
-import pandas as pd
 import matplotlib.pyplot as plt
-from huggingface_hub import hf_hub_download, InferenceClient  # Added InferenceClient wrapper
 from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
 
-# =====================================================================
-# ⚙️ CONFIGURATION & HACKATHON FLAGS
-# =====================================================================
-# Set to True to test quickly on the cloud. 
-# Set to False for Devpost submission to download and run 100% offline!
-RUN_IN_CLOUD_FIRST = True  
+# ==========================================
+# ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
+# ==========================================
+MODEL_DIR = "models"
+MODEL_NAME = "Qwen1.5-0.5B-Chat-Q4_K_M.gguf"
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
-MODEL_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-MODEL_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
-LOCAL_MODELS_DIR = "models"
-MODEL_PATH = os.path.join(LOCAL_MODELS_DIR, MODEL_FILE)
-
-# =====================================================================
-# 📂 COMPACT RAG ENGINE (LOCAL GROUNDING)
-# =====================================================================
-def load_local_knowledge(crop_type):
-    """Reads context directly from local text files to prevent model hallucination."""
-    file_path = f"knowledge/{crop_type.lower()}_guide.txt"
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return "No local specific agricultural document found for this item."
-
-# =====================================================================
-# 📥 AUTO-DOWNLOAD ROUTINE
-# =====================================================================
-def ensure_local_model_exists():
-    """Checks for local model file; downloads automatically if missing."""
+@st.cache_resource
+def initialize_offline_cores():
+    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not os.path.exists(MODEL_PATH):
-        with st.spinner("📦 First boot detected! Downloading ultra-lightweight 0.5B LLM weights..."):
-            os.makedirs(LOCAL_MODELS_DIR, exist_ok=True)
-            hf_hub_download(
-                repo_id=MODEL_REPO,
-                filename=MODEL_FILE,
-                local_dir=LOCAL_MODELS_DIR,
-                local_dir_use_symlinks=False
-            )
-        st.success("🎉 Download complete! Model saved completely offline.")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
+            try:
+                # Downloads model securely to your local directory
+                hf_hub_download(
+                    repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                    filename=MODEL_NAME,
+                    local_dir=MODEL_DIR,
+                    local_dir_use_symlinks=False
+                )
+            except Exception as e:
+                st.error(f"Failed to auto-download model. Please check connectivity for first launch: {e}")
+                return None
 
-# =====================================================================
-# 🤖 DUAL-MODE INFERENCE ENGINE (WITH PROVERBS & CULTURAL WRAP)
-# =====================================================================
-def generate_response(prompt_text, context=""):
-    """Executes prompt via cloud endpoints or local engine based on mode."""
-    
-    # Ground the prompt securely with our localized context files
-    system_prompt = (
-        "You are an expert African agricultural specialist. Use the following context documents "
-        "to answer accurately. End your response with a brief, warm, encouraging traditional greeting "
-        f"or proverb suitable for an African farmer.\n\nContext:\n{context}"
-    )
-    
-    full_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n"
+    # Load local model with explicit 1024 token capping for 4GB/8GB RAM
+    try:
+        return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
+    except Exception:
+        return None
 
-    if RUN_IN_CLOUD_FIRST:
-        # SECURE CHECK: Extract token securely from Streamlit Cloud dashboard settings
-        if "HF_TOKEN" in st.secrets:
-            hf_token = st.secrets["HF_TOKEN"]
-        else:
-            return "Configuration Error: 'HF_TOKEN' is missing in Streamlit Advanced Settings."
+llm = initialize_offline_cores()
 
-        # CLEAN ARCHITECTURE: Uses vanilla base model string. The provider backend auto-routes it.
-        cloud_model_name = MODEL_REPO.replace("-GGUF", "")
-        
-        try:
-            # Replaced with your exact InferenceClient structure setup
-            client = InferenceClient(
-                provider="hf-inference",
-                api_key=hf_token,
-            )
-            
-            response = client.chat.completions.create(
-                model=cloud_model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt_text},
-                ],
-                max_tokens=300,
-            )
-            
-            return response.choices[0].message.content
-        except Exception as e:
-            # Captures explicit network messages if token permission issues still persist
-            return f"Cloud API Connection Error: {str(e)}"
-    else:
-        ensure_local_model_exists()
-        # Keep context footprint clamped to 1024 to respect memory limits
-        llm = Llama(model_path=MODEL_PATH, n_ctx=1024, verbose=False)
-        output = llm(
-            full_prompt,
-            max_tokens=300,
-            stop=["<|im_end|>"]
-        )
-        return output["choices"]["text"]
-
-# =====================================================================
-# 🎨 STREAMLIT GRAPHICAL INTERFACE
-# =====================================================================
-st.set_page_config(page_title="Smart Farm Assistant", page_icon="🌾", layout="centered")
-
-# --- 1. SYSTEM CONTROLS & LANGUAGE TOGGLE ---
-st.title("🌾 Smart Farm Assistant")
-language = st.selectbox("🌐 Choose Language / Zabi Yare", ["English", "Hausa"])
-
-# Cultural Daily Motivating Proverbs Dictionary
-proverbs = {
-    "English": "🍀 Proverbs of the day: 'Rain does not fall on one roof alone.' (An Ashanti Proverb) — Keep working hard alongside your community!",
-    "Hausa": "🍀 Karin magana na ranar: 'Yau da gobe mai sa al'amura su daidaitu.' — Taimakon juna yana kawo babban amfanin gona!"
+# ==========================================
+# 📦 STATIC DATA & OFFLINE CORES
+# ==========================================
+OFFLINE_RAG_DB = {
+    "cassava yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
+    "maize dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
+    "bakin doriya": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
 }
-st.info(proverbs[language])
 
-# --- Translation Copy Framework ---
-if language == "English":
-    lbl_tab1, lbl_tab2, lbl_tab3 = "📋 Advisory Core", "📅 Crop Scheduler", "💰 Ledger Financials"
-    lbl_query = "Ask your farming question or simulate voice text:"
-    lbl_btn = "Process Inquiry"
-    lbl_crop = "Select Targeted Crop Context"
-    lbl_date = "Enter Planting Date"
-    lbl_calc = "Calculate Milestones"
-    lbl_txt_voice = "🎙️ Voice Input Simulation (Type what you would speak naturally into the app)"
-else:
-    lbl_tab1, lbl_tab2, lbl_tab3 = "📋 Shawarwari", "📅 Tsarin Lokaci", "💰 Lissafin Kudi"
-    lbl_query = "Tambayi tambayar ku na harkar noma:"
-    lbl_btn = "Sami Amsa"
-    lbl_crop = "Zabi Amfanin Gona"
-    lbl_date = "Shigar da Ranar Shuka"
-    lbl_calc = "Kirga Ranaku"
-    lbl_txt_voice = "🎙️ Kwaikwayon Muryar (Rubuta abinda zaka fada da baki)"
+CULTURAL_PROVERBS = [
+    "Yoruba: Bẹ́ẹ́ni a ṣe gbin gbin, bẹ́ẹ́ni a ó kórè. (As we sow, so shall we reap.)",
+    "Hausa: Mai hakuri yakan dafa dutse har ya sha romonsa. (The patient farmer cooks a stone and drinks its soup.)",
+    "Swahili: Mvumilivu hula mbivu. (A patient person eats ripe fruit.)",
+    "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
+]
 
-tab1, tab2, tab3 = st.tabs([lbl_tab1, lbl_tab2, lbl_tab3])
+# Session State for Local Financial Ledger
+if "revenue" not in st.session_state:
+    st.session_state.revenue = 0.0
+if "expenses" not in st.session_state:
+    st.session_state.expenses = 0.0
 
-# =====================================================================
-# 📋 TAB 1: LOCALIZED ADVISORY (RAG & VOICE SIMULATION)
-# =====================================================================
-with tab1:
-    st.subheader(lbl_tab1)
+# ==========================================
+# 🌐 TRANSLATION ENGINEDICTIONARIES
+# ==========================================
+LANG_DICT = {
+    "English": {
+        "title": "🌾 Offline Smart Farm Assistant",
+        "subtitle": "Voice-First Agricultural Advisor & Ledger (Zero-Data Mode)",
+        "diagnose_tab": "🤖 AI Advisor",
+        "calendar_tab": "📅 Timeline Calculator",
+        "finance_tab": "💰 Financial Ledger",
+        "symptom_label": "Describe crop symptoms:",
+        "submit_btn": "Ask Assistant",
+        "crop_select": "Select Your Main Crop:",
+        "date_input": "Planting Date:",
+        "calc_btn": "Generate Farming Timeline",
+        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):",
+        "log_btn": "Log Transaction",
+        "export_btn": "💾 Save Local Text Report to Desktop",
+        "proverb_title": "🌟 Traditional Wisdom"
+    },
+    "Hausa": {
+        "title": "🌾 Mataimakin Manomi na Offline",
+        "subtitle": "Shirin Ba da Shawara da Kula da Kudi Ba tare da Internet ba",
+        "diagnose_tab": "🤖 AI Advisor",
+        "calendar_tab": "📅 Tsarin Shuka",
+        "finance_tab": "💰 Littafin Kudi",
+        "symptom_label": "Kwatanta matsalar amfanin gona:",
+        "submit_btn": "Tambayi Mataimaki",
+        "crop_select": "Zaɓi Irin Shukan Ku:",
+        "date_input": "Ranar Shuka:",
+        "calc_btn": "Lissafi Lokutan Aiki",
+        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000'):",
+        "log_btn": "Yi Rikodin Kudi",
+        "export_btn": "💾 Ajiye Rahoto a Desktop",
+        "proverb_title": "🌟 Kararin Magana"
+    }
+}
+
+# ==========================================
+# 🛠️ HELPER FUNCTIONS
+# ==========================================
+def run_ai_advisory(user_input, lang):
+    """Applies local text verification (RAG) and structured LLM inference context."""
+    clean_input = user_input.lower().strip()
+    matched_fact = "Follow clean agricultural standards and keep fields well weeded."
     
-    selected_crop = st.radio(lbl_crop, ["Maize", "Cassava"])
-    input_mode = st.radio("Input Method", ["Text Input", "Voice Simulation Input"])
+    for key, value in OFFLINE_RAG_DB.items():
+        if key in clean_input:
+            matched_fact = value
+            break
+
+    cultural_closing = "\n\n🌍 *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n🌍 *May your harvest be heavy and rewarding!*"
+
+    if llm is None:
+        return f"[Demo Mode]\n\n**Advice:** {matched_fact}{cultural_closing}"
+
+    prompt = f"System: You are an African farming assistant. Use this factsheet: {matched_fact}\nUser: {user_input}\nAssistant:"
+    response = llm(prompt, max_tokens=150, stop=["User:", "System:"], echo=False)
+    return f"{response['choices']['text'].strip()}{cultural_closing}"
+
+def calculate_crop_timeline(crop, start_date):
+    """Executes deterministic milestone calculations via standard Python date math."""
+    if crop == "Maize":
+        fert1 = start_date + datetime.timedelta(days=21)
+        fert2 = start_date + datetime.timedelta(days=42)
+        harvest_start = start_date + datetime.timedelta(days=90)
+        harvest_end = start_date + datetime.timedelta(days=120)
+    else:  # Cassava
+        fert1 = start_date + datetime.timedelta(days=30)
+        fert2 = start_date + datetime.timedelta(days=90)
+        harvest_start = start_date + datetime.timedelta(days=270)
+        harvest_end = start_date + datetime.timedelta(days=360)
+
+    return (
+        f"📅 Official {crop} Production Timeline:\n"
+        f"• Planting Date: {start_date.strftime('%d %B %Y')}\n"
+        f"• 🚨 First Fertilizer Window: {fert1.strftime('%d %B %Y')}\n"
+        f"• 🚨 Second Fertilizer Window: {fert2.strftime('%d %B %Y')}\n"
+        f"• 🌾 Optimal Harvest Window: {harvest_start.strftime('%d %B %Y')} to {harvest_end.strftime('%d %B %Y')}"
+    )
+
+def parse_financial_statement(statement):
+    """Extracts values via localized regex parsing to safeguard memory spaces."""
+    numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
+    amount = numbers[0] if numbers else 0.0
     
-    if input_mode == "Text Input":
-        user_query = st.text_input(lbl_query, placeholder="e.g., my leaves have spots")
+    stmt_lower = statement.lower()
+    if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
+        st.session_state.revenue += amount
+        return f"💰 Logged Revenue: +{amount:,.2f} Naira"
     else:
-        user_query = st.text_area(lbl_txt_voice, placeholder="e.g., 'I notice brown rings on my stalks' or 'I spent 5000 Naira on fertilizer'")
-        
-    if st.button(lbl_btn):
-        if user_query:
-            with st.spinner("Processing... / Yana kan aiki..."):
-                # Pull local contextual records down to pass into LLM context window safely
-                context_data = load_local_knowledge(selected_crop)
-                ai_answer = generate_response(user_query, context_data)
-                st.write("### 🤖 Response / Amsa:")
-                st.write(ai_answer)
-        else:
-            st.warning("Please provide input text first!")
+        st.session_state.expenses += amount
+        return f"📉 Logged Expense: -{amount:,.2f} Naira"
 
-# =====================================================================
-# 📅 TAB 2: MATHEMATICAL CROP MILESTONE TRACKING
-# =====================================================================
-with tab2:
-    st.subheader(lbl_tab2)
-    planting_date = st.date_input(lbl_date, datetime.date.today())
+# ==========================================
+# 🎨 STREAMLIT GRAPHICAL INTERFACE
+# ==========================================
+st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
+
+# Top Header Toolbar Area
+col_lang, col_prov = st.columns([1, 3])
+with col_lang:
+    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
+
+labels = LANG_DICT[selected_lang]
+
+with col_prov:
+    # Basic time-rotation for rotating rolling dynamic proverbs
+    prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
+    st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
+
+st.title(labels["title"])
+st.caption(labels["subtitle"])
+
+# Clear UI Tab Layout Splitting
+tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
+
+# --- TAB 1: AI SOLUTION DIAGNOSIS ---
+with tab1:
+    st.subheader(labels["diagnose_tab"])
+    user_query = st.text_input(labels["symptom_label"], placeholder="Type symptoms or simulated voice transcription here...")
     
-    if st.button(lbl_calc):
-        # Precise calculations using clean Python datetime logic (zero RAM penalty)
-        fert1_date = planting_date + datetime.timedelta(days=21)
-        fert2_date = planting_date + datetime.timedelta(days=56)
-        harvest_start = planting_date + datetime.timedelta(days=90)
-        harvest_end = planting_date + datetime.timedelta(days=120)
+    # Simple simulated audio component block
+    audio_file = st.audio_input("🎙️ Speak into the microphone (Simulated Offline File)")
+    if audio_file is not None:
+        user_query = "cassava yellow spots"  # Mock fallback voice text mapping
+        # Zero Storage Bloat check: Streamlit handles memory file buffers without keeping physical disk tracks
         
-        st.success("🗓️ Crop Development Milestones Calculated Successfully!")
-        
-        # Display milestones in a readable format
-        st.write(f"**First Fertilization Window:** {fert1_date.strftime('%B %d, %Y')}")
-        st.write(f"**Second Fertilization Window:** {fert2_date.strftime('%B %d, %Y')}")
-        st.write(f"**Expected Harvest Period:** {harvest_start.strftime('%B %d, %Y')} to {harvest_end.strftime('%B %d, %Y')}")
+    if st.button(labels["submit_btn"], type="primary"):
+        if user_query:
+            with st.spinner("Thinking..."):
+                response_text = run_ai_advisory(user_query, selected_lang)
+                st.write(response_text)
+        else:
+            st.warning("Please enter an input.")
 
-# =====================================================================
-# 💰 TAB 3: LEDGER FINANCIALS
-# =====================================================================
+# --- TAB 2: DETACHED TIMELINE MATRICES ---
+with tab2:
+    st.subheader(labels["calendar_tab"])
+    selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
+    input_date = st.date_input(labels["date_input"], datetime.date.today())
+    
+    timeline_result = ""
+    if st.button(labels["calc_btn"]):
+        timeline_result = calculate_crop_timeline(selected_crop, input_date)
+        st.success(timeline_result)
+        st.session_state["last_timeline"] = timeline_result
+
+# --- TAB 3: LOCAL TRANSACTION BALANCES ---
 with tab3:
-    st.subheader(lbl_tab3)
-    st.write("Financial Ledger dashboard placeholder module.")
+    st.subheader(labels["finance_tab"])
+    col_input, col_chart = st.columns(2)
+    
+    with col_input:
+        ledger_text = st.text_input(labels["ledger_input"], placeholder="I sold 5 bags of maize for 40000")
+        if st.button(labels["log_btn"]):
+            if ledger_text:
+                log_msg = parse_financial_statement(ledger_text)
+                st.toast(log_msg)
+            else:
+                st.warning("Please type a statement.")
+                
+        net_profit = st.session_state.revenue - st.session_state.expenses
+        ledger_summary = (
+            f"### Current Farm Balance Sheet\n"
+            f"* **Total Revenue:** {st.session_state.revenue:,.2f} Naira\n"
