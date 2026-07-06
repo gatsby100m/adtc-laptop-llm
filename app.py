@@ -221,5 +221,32 @@ with tab1:
             else:
                 st.experimental_rerun()
 
-# --- TAB 2: TIMELINE CALCULATOR ---
+# --- # --- TAB 2: TIMELINE CALCULATOR ---
 with tab2:
+    selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
+    planting_date = st.date_input(labels["date_input"], datetime.date.today())
+    if st.button(labels["calc_btn"]):
+        timeline_results = calculate_crop_timeline(selected_crop, planting_date)
+        st.text(timeline_results)
+
+# --- TAB 3: FINANCIAL LEDGER ---
+with tab3:
+    ledger_text = st.text_input(labels["ledger_input"])
+    if st.button(labels["log_btn"]):
+        if ledger_text:
+            log_result = parse_financial_statement(ledger_text)
+            st.success(log_result)
+        else:
+            st.warning("Please enter transaction text.")
+            
+    st.metric("Total Revenue / Kudin Shiga", f"{st.session_state.revenue:,.2f} Naira")
+    st.metric("Total Expenses / Kudin Fitarwa", f"{st.session_state.expenses:,.2f} Naira")
+
+# --- SIDEBAR: RESOURCE METRICS DISPLAY ---
+st.sidebar.title("System Status / Shafi Na'ura")
+st.sidebar.metric(
+    label="App RAM Consumption", 
+    value=f"{get_ram_usage():.2f} MB",
+    help="Displays active RAM processing load on your computer CPU."
+)
+
