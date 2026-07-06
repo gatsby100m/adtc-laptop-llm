@@ -220,4 +220,3 @@ with tab1:
             with st.spinner("Analyzing data locally..."):
                 response_text = run_ai_advisory(final_query, selected_lang)
                 st.write(response_text)
-        else:
