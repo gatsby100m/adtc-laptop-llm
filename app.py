@@ -208,15 +208,19 @@ with col_prov:
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Create Navigation Tabs
-tab1, tab2, tab3 = st.tabs([labels["diagnostic_tab"], labels["ledger_tab"], labels["history_tab"]])
+# Create Navigation Tabs safely using .get() to prevent KeyErrors
+tab1, tab2, tab3 = st.tabs([
+    labels.get("diagnostic_tab", labels.get("diagnostic", "Diagnostic")), 
+    labels.get("ledger_tab", labels.get("ledger", "Ledger")), 
+    labels.get("history_tab", labels.get("history", "History"))
+])
 
 # --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
 with tab1:
     text_key = f"text_symptom_{st.session_state.get('input_count', 0)}"
     audio_key = f"audio_symptom_{st.session_state.get('input_count', 0)}"
 
-    user_text = st.text_input(labels["text_input_label"], key=text_key)
+    user_text = st.text_input(labels.get("text_input_label", "Enter symptoms here:"), key=text_key)
 
     col_aud1, col_aud2 = st.columns(2)
     with col_aud1:
@@ -234,6 +238,7 @@ with tab1:
     col_btn1, col_btn2 = st.columns(2)
 
     with col_btn1:
+
 
         if st.button(labels["submit_btn"], type="primary"):
             if user_text:
