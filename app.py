@@ -6,6 +6,24 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
 
+# ---Y---
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+def get_ram_usage():
+    """Calculates current RAM memory usage in MB for offline tracking."""
+    if PSUTIL_AVAILABLE:
+        try:
+            import os
+            process = psutil.Process(os.getpid())
+            return f"{process.memory_info().rss / (1024 * 1024):.2f} MB"
+        except Exception:
+            return "Data unavailable"
+    return "psutil library not found"
+
 # =========================================================
 # ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
 # =========================================================
@@ -117,7 +135,7 @@ LANG_DICT = {
 }
 
 # =========================================================
-# 🛠️ HELPER FUNCTIONS
+# 🛠️ HEFIL FUNCTIONS
 # =========================================================
 def run_ai_advisory(user_input, lang):
     clean_input = user_input.lower().strip()
@@ -323,3 +341,11 @@ with tab3:
         st.session_state.other_expenses = 0.0
         st.success("Ledger cleared successfully!")
         st.rerun()
+
+# --- RAM---
+st.sidebar.title("💻 System Status / Na'ura")
+st.sidebar.metric(
+    label="App RAM Consumption", 
+    value=get_ram_usage(),
+    help="Displays active RAM processing footprint on your computer hardware."
+)
