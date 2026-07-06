@@ -233,5 +233,35 @@ with tab3:
         else:
             st.warning("Please enter transaction text.")
             
-    st.metric("Total Revenue / Kudin Shiga", f"{st.session_state.revenue:,.2f} Naira")
-    st.metric("Total Expenses / Kudin Fitarwa", f"{st.session_state.expenses:,.2f} Naira")
+    st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
+    
+    # Calculate Total Accumulated Expenses
+    total_costs = (
+        st.session_state.labour_cost + 
+        st.session_state.fertilizer_cost + 
+        st.session_state.equipment_cost + 
+        st.session_state.other_expenses
+    )
+    
+    # Calculate Net Margin Profit
+    net_profit = st.session_state.revenue - total_costs
+    
+    # Render Itemized Operating Lines
+    st.metric("Total Sales Revenue / Kudin Sayarwa (+)", f"{st.session_state.revenue:,.2f} Naira")
+    
+    col_costs1, col_costs2 = st.columns(2)
+    with col_costs1:
+        st.metric("Labour Costs / Kudin Lebur (-)", f"{st.session_state.labour_cost:,.2f} Naira")
+        st.metric("Fertilizer & Chemicals / Kudin Taki (-)", f"{st.session_state.fertilizer_cost:,.2f} Naira")
+    with col_costs2:
+        st.metric("Equipment & Tractor / Kayan Aiki (-)", f"{st.session_state.equipment_cost:,.2f} Naira")
+        st.metric("Other Expenses / Kudaden Fitarwa (-)", f"{st.session_state.other_expenses:,.2f} Naira")
+        
+    st.markdown("---")
+    
+    # Dynamic net evaluation card layout 
+    if net_profit >= 0:
+        st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira 🎉")
+    else:
+        st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira ⚠️")
+
