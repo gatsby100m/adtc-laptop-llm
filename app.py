@@ -60,10 +60,22 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
+# --- 🔐 DEEP SESSION STATE PERSISTENCE INITIALIZATION ---
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
+if "audio_version" not in st.session_state:
+    st.session_state.audio_version = 0
+if "text_query_val" not in st.session_state:
+    st.session_state.text_query_val = ""
+# FIXED: Memory buffers to hold historical outputs across system reruns
+if "last_ai_response" not in st.session_state:
+    st.session_state.last_ai_response = ""
+if "last_timeline" not in st.session_state:
+    st.session_state.last_timeline = ""
+if "last_ledger" not in st.session_state:
+    st.session_state.last_ledger = "No financial entries logged yet."
 
 LANG_DICT = {
     "English": {
@@ -74,6 +86,7 @@ LANG_DICT = {
         "finance_tab": "💰 Financial Ledger",
         "symptom_label": "Type your crop symptoms here:",
         "submit_btn": "Ask Assistant",
+        "clear_btn": "❌ Clear Inputs & Voice",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -90,6 +103,7 @@ LANG_DICT = {
         "finance_tab": "💰 Littafin Kudi",
         "symptom_label": "Rubuta matsalar amfanin gona anan:",
         "submit_btn": "Tambayi Mataimaki",
+        "clear_btn": "❌ Goge Bayani da Muryar",
         "crop_select": "Zaɓi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
@@ -203,20 +217,3 @@ st.caption(labels["subtitle"])
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- TAB 1: AI SOLUTION DIAGNOSIS ---
-with tab1:
-    st.subheader(labels["diagnose_tab"])
-    typed_query = st.text_input(labels["symptom_label"], placeholder="Type your observation (e.g. 'brown spot on leaves')...")
-    st.write("---")
-    audio_file = st.audio_input("🎙️ Alternatively, speak into the microphone:")
-    
-    final_query = ""
-    if typed_query.strip():
-        final_query = typed_query
-    elif audio_file is not None:
-        final_query = "cassava yellow spots"
-        
-    if st.button(labels["submit_btn"], type="primary"):
-        if final_query:
-            with st.spinner("Analyzing data locally..."):
-                response_text = run_ai_advisory(final_query, selected_lang)
-                st.write(response_text)
