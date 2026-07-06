@@ -5,7 +5,6 @@ import time
 import streamlit as st
 import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
-import psutil  # Added for memory tracking
 
 # =========================================================
 # ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
@@ -113,11 +112,6 @@ LANG_DICT = {
 # =========================================================
 # 🛠️ HELPER FUNCTIONS
 # =========================================================
-def get_ram_usage():
-    """Calculates and returns the current process memory footprint in MB."""
-    process = psutil.Process(os.getpid())
-    return process.memory_info().rss / (1024 * 1024)
-
 def run_ai_advisory(user_input, lang):
     clean_input = user_input.lower().strip()
     matched_fact = None
@@ -221,7 +215,7 @@ with tab1:
             else:
                 st.experimental_rerun()
 
-# --- # --- TAB 2: TIMELINE CALCULATOR ---
+# --- TAB 2: TIMELINE CALCULATOR ---
 with tab2:
     selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
     planting_date = st.date_input(labels["date_input"], datetime.date.today())
@@ -241,12 +235,3 @@ with tab3:
             
     st.metric("Total Revenue / Kudin Shiga", f"{st.session_state.revenue:,.2f} Naira")
     st.metric("Total Expenses / Kudin Fitarwa", f"{st.session_state.expenses:,.2f} Naira")
-
-# --- SIDEBAR: RESOURCE METRICS DISPLAY ---
-st.sidebar.title("System Status / Shafi Na'ura")
-st.sidebar.metric(
-    label="App RAM Consumption", 
-    value=f"{get_ram_usage():.2f} MB",
-    help="Displays active RAM processing load on your computer CPU."
-)
-
