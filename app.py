@@ -218,7 +218,6 @@ tab1, tab2, tab3 = st.tabs([
 # --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
 with tab1:
 
-
 # --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
 with tab1:
     text_key = f"text_symptom_{st.session_state.get('input_count', 0)}"
