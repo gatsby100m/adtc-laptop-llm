@@ -191,23 +191,24 @@ with col_prov:
 st.title(labels["title"])
 st.caption(labels["subtitle"])
 
-st.divider()
-try:
-    with open("/proc/self/status", "r") as f:
-        status_text = f.read()
-    vm_rss_match = re.search(r"VmRSS:\s+(\d+)\s+kB", status_text)
-    ram_mb = float(vm_rss_match.group(1)) / 1024.0 if vm_rss_match else 142.6
-except Exception:
-    ram_mb = 142.6
+with st.expander("📊 ADTC Resource Efficiency Monitor (Tap to View)"):
+    try:
+        with open("/proc/self/status", "r") as f:
+            status_text = f.read()
+        vm_rss_match = re.search(r"VmRSS:\s+(\d+)\s+kB", status_text)
+        ram_mb = float(vm_rss_match.group(1)) / 1024.0 if vm_rss_match else 142.6
+    except Exception:
+        ram_mb = 142.6
 
-ram_percentage = (ram_mb / 7000.0) * 100.0
+    ram_percentage = (ram_mb / 7000.0) * 100.0
 
-col_ram, col_score = st.columns(2)
-with col_ram:
-    st.metric(label="🖥️ ADTC Active System RAM", value=f"{ram_mb:.1f} MB", delta=f"{ram_percentage:.1f}% of Cap (7GB Floor)", delta_color="inverse")
-with col_score:
-    st.metric(label="🎯 Efficiency Index Status", value="OPTIMAL RUNTIME", delta="Under 1.3GB Total Storage Target")
-st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
+    col_ram, col_score = st.columns(2)
+    with col_ram:
+        st.metric(label="🖥️ Active System RAM", value=f"{ram_mb:.1f} MB", delta=f"{ram_percentage:.1f}% of Cap (7GB Floor)", delta_color="inverse")
+    with col_score:
+        st.metric(label="🎯 Efficiency Index Status", value="OPTIMAL RUNTIME", delta="Under 1.3GB Total Storage Target")
+    st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
+
 st.divider()
 
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
@@ -215,4 +216,3 @@ tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labe
 # --- TAB 1: AI Advisor ---
 with tab1:
     st.subheader(labels["diagnose_tab"])
-    typed_query = st.text_input(labels["symptom_label"], placeholder="Type observation here (e.g. 'brown spot')...", key="symptom_text_input_persistent_field")
