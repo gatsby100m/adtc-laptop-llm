@@ -216,11 +216,23 @@ with tab1:
     text_key = f"text_symptom_{st.session_state.input_counter}"
     audio_key = f"audio_symptom_{st.session_state.input_counter}"
 
-    user_text = st.text_input(labels["symptom_label"], key=text_key)
-   user_audio = st.audio_input("Record audio symptoms / Rikodin sauti:", key=audio_key) 
+        user_text = st.text_input(labels["text_input_label"], key=text_key)
+    
+    col_aud1, col_aud2 = st.columns(2)
+    with col_aud1:
+        user_audio = st.audio_input("Record audio symptoms / Rikodin sauti:", key=audio_key)
+    with col_aud2:
+        uploaded_audio = st.file_uploader(
+            "Upload audio file / Dorawa sauti:", 
+            type=["wav", "mp3", "m4a", "ogg"],
+            key="audio_file_uploader_backup"
+        )
+
+    if uploaded_audio is not None and user_audio is None:
+        user_audio = uploaded_audio
 
     col_btn1, col_btn2 = st.columns(2)
-    
+
     with col_btn1:
         if st.button(labels["submit_btn"], type="primary"):
             if user_text:
