@@ -70,7 +70,7 @@ if "revenue" not in st.session_state:
 if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
 
-# 🌟 NEW: Initialize Input State Variables for Clearing Functionality
+# Initialize Input State Variables for Clearing Functionality
 if "text_input_value" not in st.session_state:
     st.session_state.text_input_value = ""
 if "audio_input_key" not in st.session_state:
@@ -176,7 +176,6 @@ def parse_financial_statement(statement):
         st.session_state.expenses += amount
         return f"📉 Logged Expense: -{amount:,.2f} Naira"
 
-# 🌟 NEW: Core function to clear input states
 def clear_inputs():
     """Resets the text string tracking value and increments the audio upload rendering index."""
     st.session_state.text_input_value = ""
@@ -200,14 +199,12 @@ with col_prov:
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Create Navigation Tabs Layout
 tab_advisor, tab_timeline, tab_ledger = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- 1. AI ADVISOR TAB ---
 with tab_advisor:
     st.write("---")
     
-    # Text input bound to the session state tracking variable
     user_text = st.text_input(
         labels["symptom_label"], 
         value=st.session_state.text_input_value, 
@@ -215,7 +212,6 @@ with tab_advisor:
     )
     st.session_state.text_input_value = user_text
 
-    # Audio input utilizing our custom dynamic key workaround to allow clear actions
     audio_file = st.file_uploader(
         labels["audio_label"], 
         type=["wav", "mp3", "m4a"], 
@@ -226,8 +222,14 @@ with tab_advisor:
         st.audio(audio_file, format="audio/wav")
         st.success("📢 Audio input registered locally.")
 
-    # Interactive Button Layout Set Side-By-Side
     btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
         submit_clicked = st.button(labels["submit_btn"], type="primary")
     with btn_col2:
+        if st.button(labels["clear_btn"]):
+            clear_inputs()
+            st.rerun()
+
+    if submit_clicked and user_text:
+        with st.spinner("Analyzing parameters..."):
+            ai_response = run_ai_advisory(user_text, selected_lang)
