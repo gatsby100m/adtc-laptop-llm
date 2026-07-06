@@ -21,19 +21,24 @@ except ImportError:
 
 @st.cache_resource
 def initialize_offline_cores():
+    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not LLAMA_AVAILABLE:
         return None
+        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        try:
-            hf_hub_download(
-                repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
-                filename=MODEL_NAME,
-                local_dir=MODEL_DIR,
-                local_dir_use_symlinks=False
-            )
-        except Exception:
-            return None
+        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
+            try:
+                hf_hub_download(
+                    repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                    filename=MODEL_NAME,
+                    local_dir=MODEL_DIR,
+                    local_dir_use_symlinks=False
+                )
+            except Exception as e:
+                st.error(f"Failed to auto-download model: {e}")
+                return None
+
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
@@ -74,6 +79,9 @@ if "last_timeline" not in st.session_state:
 if "last_ledger" not in st.session_state:
     st.session_state.last_ledger = "No financial entries logged yet."
 
+# ==========================================
+# 🌐 TRANSLATION DICTIONARIES
+# ==========================================
 LANG_DICT = {
     "English": {
         "title": "🌾 Offline Smart Farm Assistant",
@@ -83,7 +91,7 @@ LANG_DICT = {
         "finance_tab": "💰 Financial Ledger",
         "symptom_label": "Describe crop symptoms here:",
         "submit_btn": "Ask Assistant",
-        "clear_btn": "❌ Clear Display",
+        "clear_btn": "❌ Clear Screen",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -127,7 +135,7 @@ def run_ai_advisory(user_input, lang):
             best_match = fact_advice
             
     if highest_score == 0:
-        matched_fact = f"General monitoring advised for '{user_input}'. Ensure the field is weeded, monitor leaf moisture, and prevent standing water."
+        matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
     else:
         matched_fact = best_match
 
@@ -149,7 +157,7 @@ def calculate_crop_timeline(crop, start_date):
         fert2 = start_date + datetime.timedelta(days=42)
         harvest_start = start_date + datetime.timedelta(days=90)
         harvest_end = start_date + datetime.timedelta(days=120)
-    else:
+    else:  # Cassava
         fert1 = start_date + datetime.timedelta(days=30)
         fert2 = start_date + datetime.timedelta(days=90)
         harvest_start = start_date + datetime.timedelta(days=270)
@@ -165,6 +173,7 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
+    
     stmt_lower = statement.lower()
     if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
         st.session_state.revenue += amount
@@ -206,15 +215,3 @@ labels = LANG_DICT[selected_lang]
 
 with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
-    st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
-
-st.title(labels["title"])
-st.caption(labels["subtitle"])
-
-tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
-
-# --- TAB 1: AI SOLUTION DIAGNOSIS (RESTORED REST CONTROL BLOCK) ---
-with tab1:
-    st.subheader(labels["diagnose_tab"])
-    
-    # Restored Symptom Entry box
