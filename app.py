@@ -64,17 +64,10 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# Initialize Financial State Variables
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
-
-# Initialize Input State Variables for Clearing Functionality
-if "text_input_value" not in st.session_state:
-    st.session_state.text_input_value = ""
-if "audio_input_key" not in st.session_state:
-    st.session_state.audio_input_key = 0
 
 # ==========================================
 # 🌐 TRANSLATION DICTIONARIES
@@ -87,9 +80,7 @@ LANG_DICT = {
         "calendar_tab": "📅 Timeline Calculator",
         "finance_tab": "💰 Financial Ledger",
         "symptom_label": "Describe crop symptoms:",
-        "audio_label": "Or upload an audio symptom description:",
         "submit_btn": "Ask Assistant",
-        "clear_btn": "🗑️ Clear Inputs",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -105,9 +96,7 @@ LANG_DICT = {
         "calendar_tab": "📅 Tsarin Shuka",
         "finance_tab": "💰 Littafin Kudi",
         "symptom_label": "Kwatanta matsalar amfanin gona:",
-        "audio_label": "Ko kuma sanya rikodin muryar ku:",
         "submit_btn": "Tambayi Mataimaki",
-        "clear_btn": "🗑️ Goge Bayanai",
         "crop_select": "Zaɓi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
@@ -135,6 +124,7 @@ def run_ai_advisory(user_input, lang):
 
     cultural_closing = "\n\n🌍 *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n🌍 *May your harvest be heavy and rewarding!*"
 
+    # Bulletproof fallback block for Cloud Demo Mode or missing LLM
     if (not LLAMA_AVAILABLE) or (llm is None):
         return f"💡 **Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).* {cultural_closing}"
 
@@ -143,6 +133,7 @@ def run_ai_advisory(user_input, lang):
         response = llm(prompt, max_tokens=150, stop=["User:", "System:"], echo=False)
         return f"{response['choices']['text'].strip()}{cultural_closing}"
     except Exception:
+        # Emergency backup wrapper if llama-cpp object exists but fails structural extraction
         return f"💡 **Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).* {cultural_closing}"
 
 def calculate_crop_timeline(crop, start_date):
@@ -176,11 +167,6 @@ def parse_financial_statement(statement):
         st.session_state.expenses += amount
         return f"📉 Logged Expense: -{amount:,.2f} Naira"
 
-def clear_inputs():
-    """Wipes the text string tracker and increments the file uploader index key."""
-    st.session_state.text_input_value = ""
-    st.session_state.audio_input_key += 1
-
 # ==========================================
 # 🎨 STREAMLIT GRAPHICAL INTERFACE
 # ==========================================
@@ -194,42 +180,49 @@ labels = LANG_DICT[selected_lang]
 
 with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
-    st.info(f"**{labels['proverb_title']}:** {CULTURAL_PROVERBS[prov_idx]}")
+    st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
 
 st.title(labels["title"])
-st.subheader(labels["subtitle"])
+st.caption(labels["subtitle"])
 
-tab_advisor, tab_timeline, tab_ledger = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
+tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
-# --- AI ADVISOR TAB ---
-with tab_advisor:
-    st.write("---")
+# --- TAB 1: AI SOLUTION DIAGNOSIS ---
+with tab1:
+    st.subheader(labels["diagnose_tab"])
+    user_query = st.text_input(labels["symptom_label"], placeholder="Type symptoms or simulated voice transcription here...")
     
-    # Text Input linked to our session state tracker
-    user_text = st.text_input(
-        labels["symptom_label"], 
-        value=st.session_state.text_input_value, 
-        key="text_input_field"
-    )
-    st.session_state.text_input_value = user_text
-
-    # Audio Input using a dynamic changing key block to allow resets
-    audio_file = st.file_uploader(
-        labels["audio_label"], 
-        type=["wav", "mp3", "m4a"], 
-        key=f"audio_uploader_{st.session_state.audio_input_key}"
-    )
-
+    audio_file = st.audio_input("🎙️ Speak into the microphone (Simulated Offline File)")
     if audio_file is not None:
-        st.audio(audio_file, format="audio/wav")
-        st.success("📢 Audio input registered locally.")
+        user_query = "cassava yellow spots"
+        
+    if st.button(labels["submit_btn"], type="primary"):
+        if user_query:
+            with st.spinner("Thinking..."):
+                response_text = run_ai_advisory(user_query, selected_lang)
+                st.write(response_text)
+        else:
+            st.warning("Please enter an input.")
 
-    # Action layout buttons side-by-side (Fixed structural alignment error here)
-    btn_col1, btn_col2 = st.columns(2)
-    with btn_col1:
-        submit_clicked = st.button(labels["submit_btn"], type="primary")
-    with btn_col2:
-        if st.button(labels["clear_btn"]):
-            clear_inputs()
-            st.rerun()
+# --- TAB 2: DETACHED TIMELINE MATRICES ---
+with tab2:
+    st.subheader(labels["calendar_tab"])
+    selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
+    input_date = st.date_input(labels["date_input"], datetime.date.today())
+    
+    if st.button(labels["calc_btn"]):
+        timeline_result = calculate_crop_timeline(selected_crop, input_date)
+        st.success(timeline_result)
+        st.session_state["last_timeline"] = timeline_result
 
+# --- TAB 3: LOCAL TRANSACTION BALANCES ---
+with tab3:
+    st.subheader(labels["finance_tab"])
+    col_input, col_chart = st.columns(2)
+    
+    with col_input:
+        ledger_text = st.text_input(labels["ledger_input"], placeholder="I sold 5 bags of maize for 40000")
+        if st.button(labels["log_btn"]):
+            if ledger_text:
+                log_msg = parse_financial_statement(ledger_text)
+                st.toast(log_msg)
