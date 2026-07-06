@@ -83,7 +83,7 @@ LANG_DICT = {
         "finance_tab": "💰 Financial Ledger",
         "symptom_label": "Describe crop symptoms here:",
         "submit_btn": "Ask Assistant",
-        "clear_btn": "❌ Clear Screen",
+        "clear_btn": "❌ Clear Display",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -213,8 +213,8 @@ st.caption(labels["subtitle"])
 
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
-# --- TAB 1: AI SOLUTION DIAGNOSIS (MOBILE-READY FLAT LAYOUT) ---
+# --- TAB 1: AI SOLUTION DIAGNOSIS (RESTORED REST CONTROL BLOCK) ---
 with tab1:
     st.subheader(labels["diagnose_tab"])
     
-    # Simple plain input component configuration string
+    # Restored Symptom Entry box
