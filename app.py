@@ -62,12 +62,19 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
+# Initialize Granular Farm Ledger States
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
-if "expenses" not in st.session_state:
-    st.session_state.expenses = 0.0
+if "labour_cost" not in st.session_state:
+    st.session_state.labour_cost = 0.0
+if "fertilizer_cost" not in st.session_state:
+    st.session_state.fertilizer_cost = 0.0
+if "equipment_cost" not in st.session_state:
+    st.session_state.equipment_cost = 0.0
+if "other_expenses" not in st.session_state:
+    st.session_state.other_expenses = 0.0
 
-# Added counter to easily clear/delete all widget states instantly
+# Dynamic input clearance counter
 if "input_counter" not in st.session_state:
     st.session_state.input_counter = 0
 
@@ -86,7 +93,7 @@ LANG_DICT = {
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
-        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):",
+        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira' or 'Bought fertilizer 12000'):",
         "log_btn": "Log Transaction",
         "export_btn": "Save Local Text Report to Desktop",
         "proverb_title": "Traditional Wisdom"
@@ -102,7 +109,7 @@ LANG_DICT = {
         "crop_select": "Zabi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
-        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000'):",
+        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000' ko 'Na sayi taki na 12000'):",
         "log_btn": "Yi Rikodin Kudi",
         "export_btn": "Ajiye Rahoto a Desktop",
         "proverb_title": "Kararin Magana"
@@ -157,13 +164,32 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
-    stmt_lower = statement.lower()
-    if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
+    
+    if amount == 0.0:
+        return "⚠️ Error: Please include a valid cash amount number / Shigar da lambar kudi."
+        
+    stmt_lower = statement.lower().strip()
+    
+    sales_keywords = ["sell", "sold", "sayar", "income", "revenue", "harvest sale"]
+    labour_keywords = ["labour", "labor", "worker", "pay", "paid", "lebur", "ma'aikata", "salary"]
+    fert_keywords = ["fertilizer", "manure", "npk", "urea", "taki", "maganin gona"]
+    equip_keywords = ["equipment", "tractor", "tool", "plow", "rent tractor", "kayan aiki", "injiniya"]
+
+    if any(x in stmt_lower for x in sales_keywords):
         st.session_state.revenue += amount
-        return f"Logged Revenue: +{amount:,.2f} Naira"
+        return f"Logged Cost of Sale (Revenue): +{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in labour_keywords):
+        st.session_state.labour_cost += amount
+        return f"Logged Labour Cost: -{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in fert_keywords):
+        st.session_state.fertilizer_cost += amount
+        return f"Logged Fertilizer/Input Cost: -{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in equip_keywords):
+        st.session_state.equipment_cost += amount
+        return f"Logged Equipment Cost: -{amount:,.2f} Naira"
     else:
-        st.session_state.expenses += amount
-        return f"Logged Expense: -{amount:,.2f} Naira"
+        st.session_state.other_expenses += amount
+        return f"Logged Miscellaneous Expense: -{amount:,.2f} Naira"
 
 # =========================================================
 # 🖥️ STREAMLIT GRAPHICAL INTERFACE
@@ -235,7 +261,7 @@ with tab3:
             
     st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
     
-    # Calculate Total Accumulated Expenses
+    # Total Operational Outlays calculation
     total_costs = (
         st.session_state.labour_cost + 
         st.session_state.fertilizer_cost + 
@@ -243,10 +269,8 @@ with tab3:
         st.session_state.other_expenses
     )
     
-    # Calculate Net Margin Profit
     net_profit = st.session_state.revenue - total_costs
     
-    # Render Itemized Operating Lines
     st.metric("Total Sales Revenue / Kudin Sayarwa (+)", f"{st.session_state.revenue:,.2f} Naira")
     
     col_costs1, col_costs2 = st.columns(2)
@@ -259,9 +283,11 @@ with tab3:
         
     st.markdown("---")
     
-    # Dynamic net evaluation card layout 
     if net_profit >= 0:
         st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira 🎉")
     else:
         st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira ⚠️")
 
+# --- SIDEBAR: RESOURCE METRICS DISPLAY ---
+st.sidebar.title("System Status / Shafi Na'ura")
+st.sidebar.info("Application operating optimally in local zero-data desktop environment.")
