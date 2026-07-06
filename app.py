@@ -6,24 +6,6 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
 
-# ---Y---
-try:
-    import psutil
-    PSUTIL_AVAILABLE = True
-except ImportError:
-    PSUTIL_AVAILABLE = False
-
-def get_ram_usage():
-    """Calculates current RAM memory usage in MB for offline tracking."""
-    if PSUTIL_AVAILABLE:
-        try:
-            import os
-            process = psutil.Process(os.getpid())
-            return f"{process.memory_info().rss / (1024 * 1024):.2f} MB"
-        except Exception:
-            return "Data unavailable"
-    return "psutil library not found"
-
 # =========================================================
 # ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
 # =========================================================
@@ -342,10 +324,24 @@ with tab3:
         st.success("Ledger cleared successfully!")
         st.rerun()
 
-# --- RAM---
-st.sidebar.title("💻 System Status / Na'ura")
-st.sidebar.metric(
-    label="App RAM Consumption", 
-    value=get_ram_usage(),
-    help="Displays active RAM processing footprint on your computer hardware."
-)
+import os
+import pandas as pd
+
+# 1. Create a "Save to Laptop" button in the sidebar or main page
+if st.sidebar.button("💾 Save Ledger Locally"):
+    
+    # 2. Check if your ledger data exists (Replace 'st.session_state.ledger' with your actual data variable)
+    if 'ledger' in st.session_state and not st.session_state.ledger.empty:
+        try:
+            # 3. Define the filename and local path (Saves directly to your project folder)
+            file_name = "ledger_backup.csv"
+            st.session_state.ledger.to_csv(file_name, index=False)
+            
+            # 4. Show success message with the exact location
+            absolute_path = os.path.abspath(file_name)
+            st.sidebar.success(f"Saved successfully to:\n{absolute_path}")
+        except Exception as e:
+            st.sidebar.error(f"Failed to save: {e}")
+    else:
+        st.sidebar.warning("No ledger data found to save!")
+
