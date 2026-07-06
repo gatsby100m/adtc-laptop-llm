@@ -324,24 +324,29 @@ with tab3:
         st.success("Ledger cleared successfully!")
         st.rerun()
 
-import os
-import pandas as pd
-
-# 1. Create a "Save to Laptop" button in the sidebar or main page
-if st.sidebar.button("💾 Save Ledger Locally"):
+# --- TAB 3 BLOCK ---
+    st.subheader("💾 Save Records Locally")
     
-    # 2. Check if your ledger data exists (Replace 'st.session_state.ledger' with your actual data variable)
-    if 'ledger' in st.session_state and not st.session_state.ledger.empty:
+    # Create dictionary from your session state variables shown on lines 319-323
+    current_ledger_data = {
+        "Revenue": [st.session_state.get('revenue', 0.0)],
+        "Labour Cost": [st.session_state.get('labour_cost', 0.0)],
+        "Fertilizer Cost": [st.session_state.get('fertilizer_cost', 0.0)],
+        "Equipment Cost": [st.session_state.get('equipment_cost', 0.0)],
+        "Other Expenses": [st.session_state.get('other_expenses', 0.0)]
+    }
+    
+    # Regular page button instead of sidebar button
+    if st.button("Save Ledger to Laptop", key="save_ledger_tab3_btn"):
         try:
-            # 3. Define the filename and local path (Saves directly to your project folder)
-            file_name = "ledger_backup.csv"
-            st.session_state.ledger.to_csv(file_name, index=False)
+            import os
+            import pandas as pd
             
-            # 4. Show success message with the exact location
+            df = pd.DataFrame(current_ledger_data)
+            file_name = "ledger_backup.csv"
+            df.to_csv(file_name, index=False)
+            
             absolute_path = os.path.abspath(file_name)
-            st.sidebar.success(f"Saved successfully to:\n{absolute_path}")
+            st.success(f"🎉 Saved successfully to your laptop at:\n`{absolute_path}`")
         except Exception as e:
-            st.sidebar.error(f"Failed to save: {e}")
-    else:
-        st.sidebar.warning("No ledger data found to save!")
-
+            st.error(f"Failed to save: {e}")
