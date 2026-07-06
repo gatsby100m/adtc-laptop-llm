@@ -60,6 +60,7 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
+# --- 🔐 DEEP SESSION STATE PERSISTENCE INITIALIZATION ---
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
@@ -177,10 +178,10 @@ def parse_financial_statement(statement):
 # ==========================================
 st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
-# Top controls row: Language picker and traditional proverbs
 col_lang, col_prov = st.columns(2)
 with col_lang:
-    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
+    # Assigned persistent layout key to prevent dropdown state erasure loops
+    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"], key="app_global_language_selector")
 
 labels = LANG_DICT[selected_lang]
 
@@ -188,11 +189,9 @@ with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
     st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
 
-# App header titles layout row
 st.title(labels["title"])
 st.caption(labels["subtitle"])
 
-# FIXED: Removed all 'st.sidebar' markers so the monitor fits natively on the main view
 st.divider()
 try:
     with open("/proc/self/status", "r") as f:
@@ -212,7 +211,7 @@ with col_score:
 st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
 st.divider()
 
-# Primary Interface navigation tab modules
+# Core feature tab navigation selectors
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- TAB 1: AI Advisor ---
