@@ -350,3 +350,22 @@ with tab3:
             st.success(f"🎉 Saved successfully to your laptop at:\n`{absolute_path}`")
         except Exception as e:
             st.error(f"Failed to save: {e}")
+
+    st.markdown("---")
+    st.subheader("📥 Download Ledger File")
+    st.write("Download the current ledger data directly through your web browser.")
+
+    try:
+        # Convert your data into a CSV format string ready for download
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        
+        # Native Streamlit browser downloader
+        st.download_button(
+            label="⬇️ Download Ledger as CSV",
+            data=csv_data,
+            file_name="ledger_download.csv",
+            mime="text/csv",
+            key="download_ledger_tab3_btn"
+        )
+    except Exception as download_error:
+        st.info("Please fill in or save your ledger data above to enable downloading.")
