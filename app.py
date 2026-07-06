@@ -193,7 +193,6 @@ tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labe
 
 # --- TAB 1: AI ADVISOR & SYMPTOM INPUTS ---
 with tab1:
-    # Unique dynamically altering keys force the inputs to completely clear out on button trigger
     text_key = f"text_symptom_{st.session_state.input_counter}"
     audio_key = f"audio_symptom_{st.session_state.input_counter}"
 
@@ -209,18 +208,18 @@ with tab1:
                 st.write(result)
             elif user_audio is not None:
                 st.info("Audio received locally. (Audio processing engine pipeline placeholder)")
-                result = run_ai_advisory("spots", selected_lang)  # Demo fallback inference
+                result = run_ai_advisory("spots", selected_lang)
                 st.write(result)
             else:
                 st.warning("Please provide either text or audio input first.")
 
-        with col_btn2:
+    with col_btn2:
         if st.button("Delete & Clear Inputs / Goge Bayanai"):
             st.session_state.input_counter += 1
-            
-            # Compatible with both old and new Streamlit versions
             if hasattr(st, "rerun"):
                 st.rerun()
             else:
                 st.experimental_rerun()
 
+# --- TAB 2: TIMELINE CALCULATOR ---
+with tab2:
