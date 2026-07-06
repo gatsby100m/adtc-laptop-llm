@@ -251,17 +251,41 @@ with tab2:
 
 # --- TAB 3: FINANCIAL LEDGER ---
 with tab3:
-    ledger_text = st.text_input(labels["ledger_input"])
-    if st.button(labels["log_btn"]):
-        if ledger_text:
-            log_result = parse_financial_statement(ledger_text)
-            st.success(log_result)
-        else:
-            st.warning("Please enter transaction text.")
-            
-    st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
+    st.markdown("### 📝 Enter New Transactions / Shigar da Kudi")
     
-    # Total Operational Outlays calculation
+    # Grid layout for structured input fields
+    col_in1, col_in2 = st.columns(2)
+    
+    with col_in1:
+        sale_input = st.number_input("Crop Sales Revenue (Naira):", min_value=0.0, step=500.0, key="sale_in")
+        if st.button("➕ Add to Sales / Kara Kudin Sayarwa"):
+            st.session_state.revenue += sale_input
+            st.success(f"Added +{sale_input:,.2f} Naira to Sales!")
+            st.rerun()
+
+        labour_input = st.number_input("Labour & Worker Cost (Naira):", min_value=0.0, step=500.0, key="labour_in")
+        if st.button("➕ Add to Labour / Kara Kudin Lebur"):
+            st.session_state.labour_cost += labour_input
+            st.success(f"Added -{labour_input:,.2f} Naira to Labour!")
+            st.rerun()
+
+    with col_in2:
+        fert_input = st.number_input("Fertilizer & Chemicals Cost (Naira):", min_value=0.0, step=500.0, key="fert_in")
+        if st.button("➕ Add to Fertilizer / Kara Kudin Taki"):
+            st.session_state.fertilizer_cost += fert_input
+            st.success(f"Added -{fert_input:,.2f} Naira to Fertilizer!")
+            st.rerun()
+
+        equip_input = st.number_input("Equipment & Tractor Rental (Naira):", min_value=0.0, step=500.0, key="equip_in")
+        if st.button("➕ Add to Equipment / Kara Kudin Kayan Aiki"):
+            st.session_state.equipment_cost += equip_input
+            st.success(f"Added -{equip_input:,.2f} Naira to Equipment!")
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📊 Farm Profit & Loss Summary / Bayanin Riba da Asara")
+    
+    # Calculate Total Accumulated Expenses
     total_costs = (
         st.session_state.labour_cost + 
         st.session_state.fertilizer_cost + 
@@ -271,23 +295,31 @@ with tab3:
     
     net_profit = st.session_state.revenue - total_costs
     
+    # Display the live running metrics
     st.metric("Total Sales Revenue / Kudin Sayarwa (+)", f"{st.session_state.revenue:,.2f} Naira")
     
-    col_costs1, col_costs2 = st.columns(2)
-    with col_costs1:
+    col_metrics1, col_metrics2 = st.columns(2)
+    with col_metrics1:
         st.metric("Labour Costs / Kudin Lebur (-)", f"{st.session_state.labour_cost:,.2f} Naira")
         st.metric("Fertilizer & Chemicals / Kudin Taki (-)", f"{st.session_state.fertilizer_cost:,.2f} Naira")
-    with col_costs2:
+    with col_metrics2:
         st.metric("Equipment & Tractor / Kayan Aiki (-)", f"{st.session_state.equipment_cost:,.2f} Naira")
         st.metric("Other Expenses / Kudaden Fitarwa (-)", f"{st.session_state.other_expenses:,.2f} Naira")
         
     st.markdown("---")
     
+    # Live Profit or Loss evaluation block
     if net_profit >= 0:
         st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira 🎉")
     else:
         st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira ⚠️")
 
-# --- SIDEBAR: RESOURCE METRICS DISPLAY ---
-st.sidebar.title("System Status / Shafi Na'ura")
-st.sidebar.info("Application operating optimally in local zero-data desktop environment.")
+    # Reset button to clear the ledger for a new season
+    if st.button("🔄 Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
+        st.session_state.revenue = 0.0
+        st.session_state.labour_cost = 0.0
+        st.session_state.fertilizer_cost = 0.0
+        st.session_state.equipment_cost = 0.0
+        st.session_state.other_expenses = 0.0
+        st.success("Ledger cleared successfully!")
+        st.rerun()
