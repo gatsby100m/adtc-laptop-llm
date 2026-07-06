@@ -216,4 +216,4 @@ with tab1:
 
     with col_btn2:
         # Dynamic tracking component to completely wipe text and audio components instantly
-        if st.button("Delete & Clear Inputs / Goge Bayanai"):
+        
