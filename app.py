@@ -21,19 +21,24 @@ except ImportError:
 
 @st.cache_resource
 def initialize_offline_cores():
+    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not LLAMA_AVAILABLE:
         return None
+        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        try:
-            hf_hub_download(
-                repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
-                filename=MODEL_NAME,
-                local_dir=MODEL_DIR,
-                local_dir_use_symlinks=False
-            )
-        except Exception:
-            return None
+        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
+            try:
+                hf_hub_download(
+                    repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                    filename=MODEL_NAME,
+                    local_dir=MODEL_DIR,
+                    local_dir_use_symlinks=False
+                )
+            except Exception as e:
+                st.error(f"Failed to auto-download model: {e}")
+                return None
+
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
@@ -45,12 +50,11 @@ llm = initialize_offline_cores()
 # 📦 DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
 # ==========================================
 OFFLINE_RAG_DB = {
-    "yellow spots cassava mosaic whiteflies": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
-    "brown spot leaf cercospora fungus": "Cercospora Leaf Spot or fungal infection. Action: Ensure wider plant spacing for ventilation, remove lower infected foliage, and apply copper-based fungicide if severe.",
-    "dried leaves stem borer maize drought funnel": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
-    "spots insect pests bugs foliage": "General leaf spot infestation. Check for pests underneath the leaves and optimize local crop rotation.",
-    "grasshoppers locusts grasshopper crickets": "Grasshopper infestation. Action: Clear weeds around borders where they lay eggs. Use neem oil sprays early in the morning when the insects are less active.",
-    "bakin doriya masara ganyen": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
+    "yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
+    "brown spot": "Cercospora Leaf Spot or fungal infection. Action: Ensure wider plant spacing for ventilation, remove lower infected foliage, and apply copper-based fungicide if severe.",
+    "dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
+    "spots": "General leaf spot infestation. Check for pests underneath the leaves and optimize local crop rotation.",
+    "bakin doriya": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
 }
 
 CULTURAL_PROVERBS = [
@@ -60,20 +64,21 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# --- 🔐 DEEP SESSION STATE PERSISTENCE INITIALIZATION ---
+# Initialize Financial State Variables
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
-if "audio_version" not in st.session_state:
-    st.session_state.audio_version = 0
-if "last_ai_response" not in st.session_state:
-    st.session_state.last_ai_response = ""
-if "last_timeline" not in st.session_state:
-    st.session_state.last_timeline = ""
-if "last_ledger" not in st.session_state:
-    st.session_state.last_ledger = "No financial entries logged yet."
 
+# 🌟 NEW: Initialize Input State Variables for Clearing Functionality
+if "text_input_value" not in st.session_state:
+    st.session_state.text_input_value = ""
+if "audio_input_key" not in st.session_state:
+    st.session_state.audio_input_key = 0
+
+# ==========================================
+# 🌐 TRANSLATION DICTIONARIES
+# ==========================================
 LANG_DICT = {
     "English": {
         "title": "🌾 Offline Smart Farm Assistant",
@@ -81,9 +86,10 @@ LANG_DICT = {
         "diagnose_tab": "🤖 AI Advisor",
         "calendar_tab": "📅 Timeline Calculator",
         "finance_tab": "💰 Financial Ledger",
-        "symptom_label": "Describe crop symptoms here:",
+        "symptom_label": "Describe crop symptoms:",
+        "audio_label": "Or upload an audio symptom description:",
         "submit_btn": "Ask Assistant",
-        "clear_btn": "❌ Clear Screen",
+        "clear_btn": "🗑️ Clear Inputs",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -98,9 +104,10 @@ LANG_DICT = {
         "diagnose_tab": "🤖 AI Advisor",
         "calendar_tab": "📅 Tsarin Shuka",
         "finance_tab": "💰 Littafin Kudi",
-        "symptom_label": "Kwatanta matsalar amfanin gona anan:",
+        "symptom_label": "Kwatanta matsalar amfanin gona:",
+        "audio_label": "Ko kuma sanya rikodin muryar ku:",
         "submit_btn": "Tambayi Mataimaki",
-        "clear_btn": "❌ Goge Bayani",
+        "clear_btn": "🗑️ Goge Bayanai",
         "crop_select": "Zaɓi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
@@ -115,21 +122,16 @@ LANG_DICT = {
 # 🛠️ HELPER FUNCTIONS
 # ==========================================
 def run_ai_advisory(user_input, lang):
-    input_words = set(re.findall(r'\w+', user_input.lower()))
-    best_match = None
-    highest_score = 0
+    clean_input = user_input.lower().strip()
     
-    for keys_string, fact_advice in OFFLINE_RAG_DB.items():
-        key_words = set(keys_string.split())
-        match_score = len(input_words.intersection(key_words))
-        if match_score > highest_score:
-            highest_score = match_score
-            best_match = fact_advice
+    matched_fact = None
+    for key, value in OFFLINE_RAG_DB.items():
+        if key in clean_input:
+            matched_fact = value
+            break
             
-    if highest_score == 0:
+    if matched_fact is None:
         matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
-    else:
-        matched_fact = best_match
 
     cultural_closing = "\n\n🌍 *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n🌍 *May your harvest be heavy and rewarding!*"
 
@@ -149,7 +151,7 @@ def calculate_crop_timeline(crop, start_date):
         fert2 = start_date + datetime.timedelta(days=42)
         harvest_start = start_date + datetime.timedelta(days=90)
         harvest_end = start_date + datetime.timedelta(days=120)
-    else:
+    else:  # Cassava
         fert1 = start_date + datetime.timedelta(days=30)
         fert2 = start_date + datetime.timedelta(days=90)
         harvest_start = start_date + datetime.timedelta(days=270)
@@ -165,6 +167,7 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
+    
     stmt_lower = statement.lower()
     if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
         st.session_state.revenue += amount
@@ -173,6 +176,12 @@ def parse_financial_statement(statement):
         st.session_state.expenses += amount
         return f"📉 Logged Expense: -{amount:,.2f} Naira"
 
+# 🌟 NEW: Core function to reset the state values
+def clear_inputs():
+    """Wipes the text string and increments the file uploader key to force a clean re-render."""
+    st.session_state.text_input_value = ""
+    st.session_state.audio_input_key += 1
+
 # ==========================================
 # 🎨 STREAMLIT GRAPHICAL INTERFACE
 # ==========================================
@@ -180,39 +189,44 @@ st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
-    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"], key="app_global_language_selector")
+    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
 
 labels = LANG_DICT[selected_lang]
 
 with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
-    st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
+    st.info(f"**{labels['proverb_title']}:** {CULTURAL_PROVERBS[prov_idx]}")
 
 st.title(labels["title"])
-st.caption(labels["subtitle"])
+st.subheader(labels["subtitle"])
 
-with st.expander("📊 ADTC Resource Efficiency Monitor (Tap to View)"):
-    try:
-        with open("/proc/self/status", "r") as f:
-            status_text = f.read()
-        vm_rss_match = re.search(r"VmRSS:\s+(\d+)\s+kB", status_text)
-        ram_mb = float(vm_rss_match.group(1)) / 1024.0 if vm_rss_match else 142.6
-    except Exception:
-        ram_mb = 142.6
+# Creating tabs for navigation
+tab_advisor, tab_timeline, tab_ledger = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
-    ram_percentage = (ram_mb / 7000.0) * 100.0
+# --- AI ADVISOR TAB ---
+with tab_advisor:
+    st.write("---")
+    
+    # Text input synced directly with st.session_state
+    user_text = st.text_input(
+        labels["symptom_label"], 
+        value=st.session_state.text_input_value, 
+        key="text_input_field"
+    )
+    # Sync visual changes back to the tracked variable
+    st.session_state.text_input_value = user_text
 
-    col_ram, col_score = st.columns(2)
-    with col_ram:
-        st.metric(label="🖥️ Active System RAM", value=f"{ram_mb:.1f} MB", delta=f"{ram_percentage:.1f}% of Cap (7GB Floor)", delta_color="inverse")
-    with col_score:
-        st.metric(label="🎯 Efficiency Index Status", value="OPTIMAL RUNTIME", delta="Under 1.3GB Total Storage Target")
-    st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
+    # Audio input element using a dynamic unique key tracker to allow forcing clean resets
+    audio_file = st.file_uploader(
+        labels["audio_label"], 
+        type=["wav", "mp3", "m4a"], 
+        key=f"audio_uploader_{st.session_state.audio_input_key}"
+    )
 
-st.divider()
+    if audio_file is not None:
+        st.audio(audio_file, format="audio/wav")
+        st.success("📢 Audio input registered locally.")
 
-tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
-
-# --- TAB 1: AI Advisor ---
-with tab1:
-    st.subheader(labels["diagnose_tab"])
+    # Action layout buttons side-by-side
+    btn_col1, btn_col2 = st.columns([1, 5])
+    with btn_col1:
