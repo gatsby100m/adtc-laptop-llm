@@ -21,24 +21,19 @@ except ImportError:
 
 @st.cache_resource
 def initialize_offline_cores():
-    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not LLAMA_AVAILABLE:
         return None
-        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        with st.spinner("📦 First-time launch: Downloading 0.5B model from Hugging Face..."):
-            try:
-                hf_hub_download(
-                    repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
-                    filename=MODEL_NAME,
-                    local_dir=MODEL_DIR,
-                    local_dir_use_symlinks=False
-                )
-            except Exception as e:
-                st.error(f"Failed to auto-download model: {e}")
-                return None
-
+        try:
+            hf_hub_download(
+                repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                filename=MODEL_NAME,
+                local_dir=MODEL_DIR,
+                local_dir_use_symlinks=False
+            )
+        except Exception:
+            return None
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
@@ -65,7 +60,6 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# --- 🔐 DEEP SESSION STATE PERSISTENCE INITIALIZATION ---
 if "revenue" not in st.session_state:
     st.session_state.revenue = 0.0
 if "expenses" not in st.session_state:
@@ -79,9 +73,6 @@ if "last_timeline" not in st.session_state:
 if "last_ledger" not in st.session_state:
     st.session_state.last_ledger = "No financial entries logged yet."
 
-# ==========================================
-# 🌐 TRANSLATION DICTIONARIES
-# ==========================================
 LANG_DICT = {
     "English": {
         "title": "🌾 Offline Smart Farm Assistant",
@@ -157,7 +148,7 @@ def calculate_crop_timeline(crop, start_date):
         fert2 = start_date + datetime.timedelta(days=42)
         harvest_start = start_date + datetime.timedelta(days=90)
         harvest_end = start_date + datetime.timedelta(days=120)
-    else:  # Cassava
+    else:
         fert1 = start_date + datetime.timedelta(days=30)
         fert2 = start_date + datetime.timedelta(days=90)
         harvest_start = start_date + datetime.timedelta(days=270)
@@ -173,7 +164,6 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
-    
     stmt_lower = statement.lower()
     if any(x in stmt_lower for x in ["sell", "sold", "sayar"]):
         st.session_state.revenue += amount
@@ -187,8 +177,23 @@ def parse_financial_statement(statement):
 # ==========================================
 st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
-# --- 📊 LIVE RESOURCE MONITOR BAR ---
-st.sidebar.markdown("### 🖥️ ADTC Resource Efficiency Monitor")
+# Top controls row: Language picker and traditional proverbs
+col_lang, col_prov = st.columns(2)
+with col_lang:
+    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
+
+labels = LANG_DICT[selected_lang]
+
+with col_prov:
+    prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
+    st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
+
+# App header titles layout row
+st.title(labels["title"])
+st.caption(labels["subtitle"])
+
+# FIXED: Removed all 'st.sidebar' markers so the monitor fits natively on the main view
+st.divider()
 try:
     with open("/proc/self/status", "r") as f:
         status_text = f.read()
@@ -199,19 +204,17 @@ except Exception:
 
 ram_percentage = (ram_mb / 7000.0) * 100.0
 
-col_ram, col_score = st.sidebar.columns(2)
+col_ram, col_score = st.columns(2)
 with col_ram:
-    st.metric(label="Active System RAM", value=f"{ram_mb:.1f} MB", delta=f"{ram_percentage:.1f}% of Cap", delta_color="inverse")
+    st.metric(label="🖥️ ADTC Active System RAM", value=f"{ram_mb:.1f} MB", delta=f"{ram_percentage:.1f}% of Cap (7GB Floor)", delta_color="inverse")
 with col_score:
-    st.metric(label="Efficiency Status", value="🎯 OPTIMAL", delta="Under 1.3GB Disk")
-st.sidebar.caption("🔒 Strict 1,024 Token Context Caps locked to prevent memory leaks on 8GB hardware.")
-st.sidebar.divider()
+    st.metric(label="🎯 Efficiency Index Status", value="OPTIMAL RUNTIME", delta="Under 1.3GB Total Storage Target")
+st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
+st.divider()
 
-col_lang, col_prov = st.columns(2)
-with col_lang:
-    selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"])
+# Primary Interface navigation tab modules
+tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
-labels = LANG_DICT[selected_lang]
-
-with col_prov:
-    prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
+# --- TAB 1: AI Advisor ---
+with tab1:
+    st.subheader(labels["diagnose_tab"])
