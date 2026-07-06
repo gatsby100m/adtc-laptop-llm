@@ -214,4 +214,13 @@ with tab1:
             else:
                 st.warning("Please provide either text or audio input first.")
 
-    
+        with col_btn2:
+        if st.button("Delete & Clear Inputs / Goge Bayanai"):
+            st.session_state.input_counter += 1
+            
+            # Compatible with both old and new Streamlit versions
+            if hasattr(st, "rerun"):
+                st.rerun()
+            else:
+                st.experimental_rerun()
+
