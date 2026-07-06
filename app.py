@@ -217,7 +217,7 @@ with tab1:
     audio_key = f"audio_symptom_{st.session_state.input_counter}"
 
     user_text = st.text_input(labels["symptom_label"], key=text_key)
-    user_audio = st.audio_input("Record audio symptoms / Rikodin sauti:", key=audio_key)
+   user_audio = st.audio_input("Record audio symptoms / Rikodin sauti:", key=audio_key) 
 
     col_btn1, col_btn2 = st.columns(2)
     
