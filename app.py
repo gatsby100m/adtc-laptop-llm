@@ -67,9 +67,6 @@ if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
 if "audio_version" not in st.session_state:
     st.session_state.audio_version = 0
-if "text_query_val" not in st.session_state:
-    st.session_state.text_query_val = ""
-# FIXED: Memory buffers to hold historical outputs across system reruns
 if "last_ai_response" not in st.session_state:
     st.session_state.last_ai_response = ""
 if "last_timeline" not in st.session_state:
@@ -84,9 +81,9 @@ LANG_DICT = {
         "diagnose_tab": "🤖 AI Advisor",
         "calendar_tab": "📅 Timeline Calculator",
         "finance_tab": "💰 Financial Ledger",
-        "symptom_label": "Type your crop symptoms here:",
+        "symptom_label": "Describe crop symptoms here:",
         "submit_btn": "Ask Assistant",
-        "clear_btn": "❌ Clear Inputs & Voice",
+        "clear_btn": "❌ Clear Screen",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
         "calc_btn": "Generate Farming Timeline",
@@ -101,9 +98,9 @@ LANG_DICT = {
         "diagnose_tab": "🤖 AI Advisor",
         "calendar_tab": "📅 Tsarin Shuka",
         "finance_tab": "💰 Littafin Kudi",
-        "symptom_label": "Rubuta matsalar amfanin gona anan:",
+        "symptom_label": "Kwatanta matsalar amfanin gona anan:",
         "submit_btn": "Tambayi Mataimaki",
-        "clear_btn": "❌ Goge Bayani da Muryar",
+        "clear_btn": "❌ Goge Bayani",
         "crop_select": "Zaɓi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
@@ -216,4 +213,8 @@ st.caption(labels["subtitle"])
 
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
-# --- TAB 1: AI SOLUTION DIAGNOSIS ---
+# --- TAB 1: AI SOLUTION DIAGNOSIS (MOBILE-READY FLAT LAYOUT) ---
+with tab1:
+    st.subheader(labels["diagnose_tab"])
+    
+    # Simple plain input component configuration string
