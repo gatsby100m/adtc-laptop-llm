@@ -70,7 +70,7 @@ if "revenue" not in st.session_state:
 if "expenses" not in st.session_state:
     st.session_state.expenses = 0.0
 
-# 🌟 NEW: Initialize Input State Variables for Clearing Functionality
+# Initialize Input State Variables for Clearing Functionality
 if "text_input_value" not in st.session_state:
     st.session_state.text_input_value = ""
 if "audio_input_key" not in st.session_state:
@@ -176,9 +176,8 @@ def parse_financial_statement(statement):
         st.session_state.expenses += amount
         return f"📉 Logged Expense: -{amount:,.2f} Naira"
 
-# 🌟 NEW: Core function to reset the state values
 def clear_inputs():
-    """Wipes the text string and increments the file uploader key to force a clean re-render."""
+    """Wipes the text string tracker and increments the file uploader index key."""
     st.session_state.text_input_value = ""
     st.session_state.audio_input_key += 1
 
@@ -200,23 +199,21 @@ with col_prov:
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Creating tabs for navigation
 tab_advisor, tab_timeline, tab_ledger = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- AI ADVISOR TAB ---
 with tab_advisor:
     st.write("---")
     
-    # Text input synced directly with st.session_state
+    # Text Input linked to our session state tracker
     user_text = st.text_input(
         labels["symptom_label"], 
         value=st.session_state.text_input_value, 
         key="text_input_field"
     )
-    # Sync visual changes back to the tracked variable
     st.session_state.text_input_value = user_text
 
-    # Audio input element using a dynamic unique key tracker to allow forcing clean resets
+    # Audio Input using a dynamic changing key block to allow resets
     audio_file = st.file_uploader(
         labels["audio_label"], 
         type=["wav", "mp3", "m4a"], 
@@ -227,6 +224,12 @@ with tab_advisor:
         st.audio(audio_file, format="audio/wav")
         st.success("📢 Audio input registered locally.")
 
-    # Action layout buttons side-by-side
-    btn_col1, btn_col2 = st.columns([1, 5])
+    # Action layout buttons side-by-side (Fixed structural alignment error here)
+    btn_col1, btn_col2 = st.columns(2)
     with btn_col1:
+        submit_clicked = st.button(labels["submit_btn"], type="primary")
+    with btn_col2:
+        if st.button(labels["clear_btn"]):
+            clear_inputs()
+            st.rerun()
+
