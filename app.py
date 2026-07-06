@@ -208,12 +208,16 @@ with col_prov:
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Create Navigation Tabs safely using .get() to prevent KeyErrors
+# Create Navigation Tabs with your exact dictionary keys
 tab1, tab2, tab3 = st.tabs([
-    labels.get("diagnostic_tab", labels.get("diagnostic", "Diagnostic")), 
-    labels.get("ledger_tab", labels.get("ledger", "Ledger")), 
-    labels.get("history_tab", labels.get("history", "History"))
+    labels.get("AI Advisor", "AI Advisor"), 
+    labels.get("Timeline Calculator", "Timeline Calculator"), 
+    labels.get("Financial Ledger", "Financial Ledger")
 ])
+
+# --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
+with tab1:
+
 
 # --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
 with tab1:
