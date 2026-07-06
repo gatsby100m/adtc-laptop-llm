@@ -180,7 +180,6 @@ st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
-    # Assigned persistent layout key to prevent dropdown state erasure loops
     selected_lang = st.selectbox("🌐 Language / Yare", ["English", "Hausa"], key="app_global_language_selector")
 
 labels = LANG_DICT[selected_lang]
@@ -211,9 +210,9 @@ with col_score:
 st.write("*(🔒 Hard 1,024 context caps enforced globally to protect memory spaces from leaking on standard 8GB community laptops).*")
 st.divider()
 
-# Core feature tab navigation selectors
 tab1, tab2, tab3 = st.tabs([labels["diagnose_tab"], labels["calendar_tab"], labels["finance_tab"]])
 
 # --- TAB 1: AI Advisor ---
 with tab1:
     st.subheader(labels["diagnose_tab"])
+    typed_query = st.text_input(labels["symptom_label"], placeholder="Type observation here (e.g. 'brown spot')...", key="symptom_text_input_persistent_field")
