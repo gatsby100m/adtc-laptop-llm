@@ -214,6 +214,4 @@ with tab1:
             else:
                 st.warning("Please provide either text or audio input first.")
 
-    with col_btn2:
-        # Dynamic tracking component to completely wipe text and audio components instantly
-        
+    
