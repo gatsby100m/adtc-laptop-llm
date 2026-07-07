@@ -4,7 +4,6 @@ import datetime
 import time
 import streamlit as st
 import matplotlib.pyplot as plt
-from huggingface_hub import hf_hub_download
 
 MODEL_DIR = "models"
 MODEL_NAME = "qwen1_5-0_5b-chat-q4_k_m.gguf"
@@ -18,14 +17,17 @@ except ImportError:
 
 @st.cache_resource
 def initialize_offline_cores():
-    """Checks local storage on first launch; downloads model from Hugging Face if missing."""
+    """Checks local storage; safely bypasses internet checks if model exists."""
     if not LLAMA_AVAILABLE:
+        st.error("Critical Error: 'llama-cpp-python' library is not installed.")
         return None
         
+    # Check if model is already downloaded to allow 100% offline boots
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
         with st.spinner("First-time launch: Downloading 0.5B model from Hugging Face..."):
             try:
+                from huggingface_hub import hf_hub_download
                 hf_hub_download(
                     repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
                     filename=MODEL_NAME,
@@ -33,15 +35,22 @@ def initialize_offline_cores():
                     local_dir_use_symlinks=False
                 )
             except Exception as e:
-                st.error(f"Failed to auto-download model: {e}")
+                st.error(f"Network error. Cannot download model: {e}")
                 return None
                 
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
-    except Exception:
+    except Exception as e:
+        st.error(f"Failed to initialize Llama model: {e}")
         return None
 
 llm = initialize_offline_cores()
+
+# Example safety check before running your app UI
+if llm is None:
+    st.warning("⚠️ Application is running in dummy mode. AI features are unavailable.")
+else:
+    st.success("🚀 AI Core loaded successfully in offline mode!")
 
 # =========================================================
 # 📊 DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
