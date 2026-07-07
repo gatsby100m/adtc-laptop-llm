@@ -17,33 +17,32 @@ except ImportError:
 
 @st.cache_resource
 def initialize_offline_cores():
-    """Checks local storage; safely bypasses internet checks if model exists."""
+    """Checks local storage on first launch; downloads model if missing without breaking Streamlit's order."""
     if not LLAMA_AVAILABLE:
-        st.error("Critical Error: 'llama-cpp-python' library is not installed.")
         return None
         
-    # Check if model is already downloaded to allow 100% offline boots
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        with st.spinner("First-time launch: Downloading 0.5B model from Hugging Face..."):
-            try:
-                from huggingface_hub import hf_hub_download
-                hf_hub_download(
-                    repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
-                    filename=MODEL_NAME,
-                    local_dir=MODEL_DIR,
-                    local_dir_use_symlinks=False
-                )
-            except Exception as e:
-                st.error(f"Network error. Cannot download model: {e}")
-                return None
+        # Removed st.spinner and st.error from here to prevent 
+        # crashing Streamlit's top-level page configuration order.
+        try:
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(
+                repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                filename=MODEL_NAME,
+                local_dir=MODEL_DIR,
+                local_dir_use_symlinks=False
+            )
+        except Exception:
+            # Fails silently to allow the app to boot and use your OFFLINE_RAG_DB fallback
+            return None
                 
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
-    except Exception as e:
-        st.error(f"Failed to initialize Llama model: {e}")
+    except Exception:
         return None
 
+# Safe global execution: returns a real Llama instance or cleanly returns None
 llm = initialize_offline_cores()
 
 # Example safety check before running your app UI
