@@ -6,9 +6,6 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from huggingface_hub import hf_hub_download
 
-# =========================================================
-# ⚙️ MODEL AUTO-INSTALL & INITIALIZATION
-# =========================================================
 MODEL_DIR = "models"
 MODEL_NAME = "qwen1_5-0_5b-chat-q4_k_m.gguf"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
@@ -24,6 +21,7 @@ def initialize_offline_cores():
     """Checks local storage on first launch; downloads model from Hugging Face if missing."""
     if not LLAMA_AVAILABLE:
         return None
+        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
         with st.spinner("First-time launch: Downloading 0.5B model from Hugging Face..."):
@@ -37,6 +35,7 @@ def initialize_offline_cores():
             except Exception as e:
                 st.error(f"Failed to auto-download model: {e}")
                 return None
+                
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
