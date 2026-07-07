@@ -1,3 +1,19 @@
+## 🚀 How to Run the App (One-Click Setup)
+
+This project is fully automated and optimized to build correctly on local development machines, including low-RAM hardware down to 4GB.
+
+### For Windows Judges:
+1. Clone this repository and open the project folder.
+2. Double-click the `run_win.bat` file. This will automatically create an isolated environment, configure your dependencies, download the 0.5B model, and launch the application interface.
+
+### For Mac & Linux Judges:
+1. Clone this repository and open your terminal inside the project folder.
+2. Make the script executable and run it:
+   ```bash
+   chmod +x run_mac_linux.sh
+   ./run_mac_linux.sh
+   ```
+
 # adtc-laptop-llm
 Offline llm challenge
 # 🌾 Smart Farm Assistant: Offline Deep-Tech AI
