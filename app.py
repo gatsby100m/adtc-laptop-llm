@@ -138,8 +138,8 @@ def run_ai_advisory(user_input, lang):
         
         # Run the text straight through the neural network
         response = llm(prompt, max_tokens=200, stop=["User:", "System:"], echo=False)
-        return f"{response['choices']['text'].strip()}{cultural_closing}"
-        
+        return f"{response['choices'][0]['text'].strip()}{cultural_closing}"
+
     except Exception as e:
         return f"**Error:** Could not process diagnostic request via local model. Details: {e}"
 
