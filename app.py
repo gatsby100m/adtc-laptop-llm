@@ -54,13 +54,6 @@ else:
 # =========================================================
 # 📊 DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
 # =========================================================
-OFFLINE_RAG_DB = {
-    "yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
-    "brown spot": "Cercospora Leaf Spot or fungal infection. Action: Ensure wider plant spacing for ventilation, remove lower infected foliage, and apply copper-based fungicide if severe.",
-    "dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
-    "spots": "General leaf spot infestation. Check for pests underneath the leaves and optimize local crop rotation.",
-    "bakin doriya": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
-}
 
 CULTURAL_PROVERBS = [
     "Yoruba: Bééni a șe gbin gbin, bééni a ó kórè. (As we sow, so shall we reap.)",
@@ -127,27 +120,28 @@ LANG_DICT = {
 # 🛠️ HEFIL FUNCTIONS
 # =========================================================
 def run_ai_advisory(user_input, lang):
-    clean_input = user_input.lower().strip()
-    matched_fact = None
-    for key, value in OFFLINE_RAG_DB.items():
-        if key in clean_input:
-            matched_fact = value
-            break
-
-    if matched_fact is None:
-        matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
-
-    cultural_closing = "\n\n *May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n *May your harvest be heavy and rewarding!*"
-
+    cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
+    
+    # If the local AI core failed to load, give a clean notice
     if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).*\n{cultural_closing}"
-
+        return f"**System Notice:** The local AI core is unavailable. Please check your CPU core initialization.\n{cultural_closing}"
+    
     try:
-        prompt = f"System: You are an African farming assistant. Use this factsheet: {matched_fact}\nUser: {user_input}\nAssistant:"
-        response = llm(prompt, max_tokens=150, stop=["User:", "System:"], echo=False)
+        # This prompt gives the local Qwen model full freedom to think and diagnose
+        prompt = (
+            f"System: You are an expert African agricultural AI assistant. "
+            f"Provide direct, highly practical management steps, pest controls, or disease diagnostic advice "
+            f"for the following inquiry. Keep your response clear and optimized for a smallholder farmer.\n"
+            f"User: {user_input}\n"
+            f"Assistant:"
+        )
+        
+        # Run the text straight through the neural network
+        response = llm(prompt, max_tokens=200, stop=["User:", "System:"], echo=False)
         return f"{response['choices']['text'].strip()}{cultural_closing}"
-    except Exception:
-        return f"**Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).*\n{cultural_closing}"
+        
+    except Exception as e:
+        return f"**Error:** Could not process diagnostic request via local model. Details: {e}"
 
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
