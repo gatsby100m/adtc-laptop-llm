@@ -210,6 +210,14 @@ def parse_financial_statement(statement):
         st.session_state.labour_cost += amount
         return f"Logged Labour Cost: -{amount:,.2f} Naira"
     elif any(x in stmt_lower for x in fert_keywords):
+        st.session_state.fertilizer_cost += amount
+        return f"Logged Fertilizer/Input Cost: -{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in equip_keywords):
+        st.session_state.equipment_cost += amount
+        return f"Logged Equipment Cost: -{amount:,.2f} Naira"
+    else:
+        st.session_state.other_expenses += amount
+        return f"Logged Miscellaneous Expense: -{amount:,.2f} Naira"
 
 # =========================================================
 # STREAMLIT GRAPHICAL INTERFACE
@@ -395,3 +403,4 @@ with tab3:
         )
     except Exception as download_error:
         st.info("Please fill in or save your ledger data above to enable downloading.")
+          
