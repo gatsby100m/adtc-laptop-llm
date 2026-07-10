@@ -114,53 +114,63 @@ LANG_DICT = {
 }
 
 # =========================================================
-# HELP CORE FUNCTIONS & UNCONSTRAINED AI GENERATION
+# HELP CORE FUNCTIONS & LANGUAGE-LOCKED AI GENERATION
 # =========================================================
 def run_ai_advisory(user_input, lang):
     """
     Feeds the user's input directly into Qwen using proper ChatML templates,
-    allowing full, free-form, unconstrained text generation.
+    allowing full text generation while locking the language to prevent Chinese mixing.
     """
     cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
     
-    # Check if local model loaded, fallback if missing
     if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**System:** Local AI Core is offline. Please enable the model to get dynamic answers.\n{cultural_closing}"
+        return f"**System Notice:** Local AI Core (`llm`) is not initialized.\n{cultural_closing}"
         
     try:
-        # Determine system instructions based on language
+        # Strict language boundaries inside system instructions to guide the 0.5B weights
         if lang == "Hausa":
-            system_instruction = "Kuna da babban masanin aikin gona na gona na Afirka. Taimaka wa manomin da tambayoyinsu da cikakken bayani."
+            system_instruction = (
+                "Kuna da babban masanin aikin gona na gona na Afirka. "
+                "Taimaka wa manomin da tambayoyinsu da cikakken bayani. "
+                "HARSHEN HAUSA KAWAI zaka yi amfani da shi! Kada ka rubuta haruffan Sinanci (No Chinese characters)!"
+            )
         else:
-            system_instruction = "You are an expert African agricultural advisor. Provide detailed, helpful, and creative farming advice to the user's question."
+            system_instruction = (
+                "You are an expert African agricultural advisor. Provide detailed, helpful, and creative farming advice. "
+                "CRITICAL: Write your entire response ONLY in clear, professional English. "
+                "Do NOT use Chinese characters (characters like 植株, 瘤, 适度 are strictly forbidden). "
+                "Use standard farming terms like leaf spot, blight, or fungus instead of medical words like tumor."
+            )
 
-        # Apply the exact official Qwen-1.5 ChatML template structures
+        # Apply official Qwen-1.5 ChatML template structure
         prompt = (
             f"<|im_start|>system\n{system_instruction}<|im_end|>\n"
             f"<|im_start|>user\n{user_input}<|im_end|>\n"
             f"<|im_start|>assistant\n"
         )
         
-        # Generation call using creative sampling configuration
         response = llm(
             prompt, 
-            max_tokens=250,                  # Raised limit to let Qwen write longer, richer paragraphs
-            temperature=0.7,                 # Controls creativity (0.0 is rigid/robotic, 0.7 is expressive and natural)
-            top_p=0.9,                       # Selects tokens from the top 90% pool for high-quality variation
-            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"], # Strict cutoffs so it doesn't generate both sides of a chat
+            max_tokens=250,                  
+            temperature=0.6,                 # Lowered slightly to eliminate language confusion drifts
+            top_p=0.85,                      
+            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"], 
             echo=False
         )
         
+        # Safe extraction: Grabbing list index 0 explicitly as an integer
         ai_response = response['choices'][0]['text'].strip()
         
-        # Fallback safeguard just in case the model returns empty text
+        # Safeguard filter: Instantly wipe out any stray Chinese tokens if they leak through regex boundaries
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
+        
         if len(ai_response) < 3:
             return f"I hear you talking about '{user_input}', but I am having trouble forming a tip right now. Please try rephrasing!{cultural_closing}"
             
         return f"{ai_response}{cultural_closing}"
         
     except Exception as e:
-        return f"**AI Generation Error:** {str(e)}"
+        return f"🚨 **Internal App Error:** `{str(e)}`"
 
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
@@ -200,14 +210,6 @@ def parse_financial_statement(statement):
         st.session_state.labour_cost += amount
         return f"Logged Labour Cost: -{amount:,.2f} Naira"
     elif any(x in stmt_lower for x in fert_keywords):
-        st.session_state.fertilizer_cost += amount
-        return f"Logged Fertilizer/Input Cost: -{amount:,.2f} Naira"
-    elif any(x in stmt_lower for x in equip_keywords):
-        st.session_state.equipment_cost += amount
-        return f"Logged Equipment Cost: -{amount:,.2f} Naira"
-    else:
-        st.session_state.other_expenses += amount
-        return f"Logged Miscellaneous Expense: -{amount:,.2f} Naira"
 
 # =========================================================
 # STREAMLIT GRAPHICAL INTERFACE
