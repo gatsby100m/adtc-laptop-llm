@@ -151,7 +151,7 @@ def run_ai_advisory(user_input, lang):
             echo=False
         )
         
-        ai_response = response['choices']['text'].strip()
+        ai_response = response['choices'][0]['text'].strip()
         
         # Fallback safeguard just in case the model returns empty text
         if len(ai_response) < 3:
