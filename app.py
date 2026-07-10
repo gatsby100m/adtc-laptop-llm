@@ -114,61 +114,53 @@ LANG_DICT = {
 }
 
 # =========================================================
-# HELP CORE FUNCTIONS & AUTOMATIC AI VETTING
+# HELP CORE FUNCTIONS & UNCONSTRAINED AI GENERATION
 # =========================================================
 def run_ai_advisory(user_input, lang):
-    clean_input = user_input.lower().strip()
-    matched_fact = None
-    
-    # 1. Local RAG Fact Retrieval Loop
-    for key, value in OFFLINE_RAG_DB.items():
-        if key in clean_input:
-            matched_fact = value
-            break
-            
-    if matched_fact is None:
-        matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
-        
+    """
+    Feeds the user's input directly into Qwen using proper ChatML templates,
+    allowing full, free-form, unconstrained text generation.
+    """
     cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
     
-    # Check if local model loaded, fallback to static RAG block securely if missing
+    # Check if local model loaded, fallback if missing
     if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).*\n{cultural_closing}"
+        return f"**System:** Local AI Core is offline. Please enable the model to get dynamic answers.\n{cultural_closing}"
         
     try:
-        # Construct strict context boundaries to force the 0.5B model to stick to the factsheet
+        # Determine system instructions based on language
+        if lang == "Hausa":
+            system_instruction = "Kuna da babban masanin aikin gona na gona na Afirka. Taimaka wa manomin da tambayoyinsu da cikakken bayani."
+        else:
+            system_instruction = "You are an expert African agricultural advisor. Provide detailed, helpful, and creative farming advice to the user's question."
+
+        # Apply the exact official Qwen-1.5 ChatML template structures
         prompt = (
-            f"System: You are an African farming assistant. You MUST ONLY use the provided factsheet to formulate the answer. "
-            f"Do not invent new plant diseases, chemical treatments, or metrics outside the factsheet text.\n"
-            f"Factsheet: {matched_fact}\n"
-            f"User: {user_input}\n"
-            f"Assistant:"
+            f"<|im_start|>system\n{system_instruction}<|im_end|>\n"
+            f"<|im_start|>user\n{user_input}<|im_end|>\n"
+            f"<|im_start|>assistant\n"
         )
         
-        # Generation configuration with multiple structural cutoff tokens
-        response = llm(prompt, max_tokens=150, stop=["User:", "System:", "\n\n"], echo=False)
+        # Generation call using creative sampling configuration
+        response = llm(
+            prompt, 
+            max_tokens=250,                  # Raised limit to let Qwen write longer, richer paragraphs
+            temperature=0.7,                 # Controls creativity (0.0 is rigid/robotic, 0.7 is expressive and natural)
+            top_p=0.9,                       # Selects tokens from the top 90% pool for high-quality variation
+            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"], # Strict cutoffs so it doesn't generate both sides of a chat
+            echo=False
+        )
+        
         ai_response = response['choices']['text'].strip()
         
-        # --- AUTOMATIC VETTING CRITERIA ENGINE ---
-        
-        # Guard 1: Detect repetition loops (highly prevalent in 0.5B quantizations on low hardware)
-        if re.search(r'(\b\w+\b)( \1){3,}', ai_response.lower()):
-            return f"**System Vetting Bypass:** AI token repetition detected. Showing verified safety diagnosis:\n\n{matched_fact}{cultural_closing}"
-            
-        # Guard 2: Cross-verify fact anchoring keywords to reject hallucinations
-        core_keywords = [w for w in re.findall(r'\b[A-Z]\w+\b', matched_fact) if w not in ["Action", "Spread", "Spreadby", "Disease"]]
-        if core_keywords and not any(kw.lower() in ai_response.lower() for kw in core_keywords):
-            return f"**System Vetting Bypass:** AI straying from safety database. Showing verified treatment path:\n\n{matched_fact}{cultural_closing}"
-            
-        # Guard 3: Structural length validation
-        if len(ai_response) < 5:
-            return f"**Offline RAG Result:** {matched_fact}{cultural_closing}"
+        # Fallback safeguard just in case the model returns empty text
+        if len(ai_response) < 3:
+            return f"I hear you talking about '{user_input}', but I am having trouble forming a tip right now. Please try rephrasing!{cultural_closing}"
             
         return f"{ai_response}{cultural_closing}"
         
-    except Exception:
-        # Fail-safe structural bubble: guarantees user always gets an actionable response
-        return f"**Offline RAG Result:** {matched_fact}{cultural_closing}"
+    except Exception as e:
+        return f"**AI Generation Error:** {str(e)}"
 
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
@@ -204,13 +196,24 @@ def parse_financial_statement(statement):
     if any(x in stmt_lower for x in sales_keywords):
         st.session_state.revenue += amount
         return f"Logged Cost of Sale (Revenue): +{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in labour_keywords):
+        st.session_state.labour_cost += amount
+        return f"Logged Labour Cost: -{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in fert_keywords):
+        st.session_state.fertilizer_cost += amount
+        return f"Logged Fertilizer/Input Cost: -{amount:,.2f} Naira"
+    elif any(x in stmt_lower for x in equip_keywords):
+        st.session_state.equipment_cost += amount
+        return f"Logged Equipment Cost: -{amount:,.2f} Naira"
+    else:
+        st.session_state.other_expenses += amount
+        return f"Logged Miscellaneous Expense: -{amount:,.2f} Naira"
 
 # =========================================================
 # STREAMLIT GRAPHICAL INTERFACE
 # =========================================================
 st.set_page_config(page_title="SmartFarmAssistant", layout="wide")
 
-# Safety check block for top level configuration alert handling
 if llm is None:
     st.warning(" Application is running in dummy mode. AI features are unavailable.")
 else:
@@ -228,7 +231,6 @@ with col_prov:
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Create Navigation Tabs dynamically
 tab1, tab2, tab3 = st.tabs([
     labels.get("diagnose_tab", "AI Advisor"),
     labels.get("calendar_tab", "Timeline Calculator"),
@@ -285,7 +287,6 @@ with tab2:
 with tab3:
     st.markdown("### Enter New Transactions / Shigar da Kudi")
     
-    # Natural language ledger slot implementation
     nlp_statement = st.text_input(labels["ledger_input"], key=f"nlp_stmt_{st.session_state.get('input_counter', 0)}")
     if st.button(labels["log_btn"]):
         if nlp_statement:
