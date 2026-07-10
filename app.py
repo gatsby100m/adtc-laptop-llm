@@ -20,11 +20,8 @@ def initialize_offline_cores():
     """Checks local storage on first launch; downloads model if missing without breaking Streamlit's order."""
     if not LLAMA_AVAILABLE:
         return None
-        
     if not os.path.exists(MODEL_PATH):
         os.makedirs(MODEL_DIR, exist_ok=True)
-        # Removed st.spinner and st.error from here to prevent 
-        # crashing Streamlit's top-level page configuration order.
         try:
             from huggingface_hub import hf_hub_download
             hf_hub_download(
@@ -36,7 +33,6 @@ def initialize_offline_cores():
         except Exception:
             # Fails silently to allow the app to boot and use your OFFLINE_RAG_DB fallback
             return None
-                
     try:
         return Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
     except Exception:
@@ -45,18 +41,19 @@ def initialize_offline_cores():
 # Safe global execution: returns a real Llama instance or cleanly returns None
 llm = initialize_offline_cores()
 
-# Example safety check before running your app UI
-if llm is None:
-    st.warning("⚠️ Application is running in dummy mode. AI features are unavailable.")
-else:
-    st.success("🚀 AI Core loaded successfully in offline mode!")
-
 # =========================================================
-# 📊 DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
+# DYNAMIC LOCAL FACT KNOWLEDGE DATABASE
 # =========================================================
+OFFLINE_RAG_DB = {
+    "yellow spots": "Cassava Mosaic Disease (CMD). Spread by whiteflies. Action: Uproot infected plants immediately. Plant resistant stems next season.",
+    "brown spot": "Cercospora Leaf Spot or fungal infection. Action: Ensure wider plant spacing for ventilation, remove lower infected foliage, and apply copper-based fungicide if severe.",
+    "dried leaves": "Maize Stem Borer damage or severe drought. Action: Check stalk for holes. Apply neem extract solution directly into the funnel.",
+    "spots": "General leaf spot infestation. Check for pests underneath the leaves and optimize local crop rotation.",
+    "bakin doriya": "Cutar taba ganyen masara (CMD). Mataki: Cire shukan da ya rube. Yi amfani da irin da ke jure cututtuka."
+}
 
 CULTURAL_PROVERBS = [
-    "Yoruba: Bééni a șe gbin gbin, bééni a ó kórè. (As we sow, so shall we reap.)",
+    "Yoruba: Bí énìyàn bá șe gbingbin, béè ni yóò ṣe kórè. (As we sow, so shall we reap.)",
     "Hausa: Mai hakuri yakan dafa dutse har ya sha romonsa. (The patient farmer cooks a stone and drinks its soup.)",
     "Swahili: Mvumilivu hula mbivu. (A patient person eats ripe fruit.)",
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
@@ -79,7 +76,7 @@ if "input_counter" not in st.session_state:
     st.session_state.input_counter = 0
 
 # =========================================================
-# 🌐 TRANSLATION DICTIONARIES
+# TRANSLATION DICTIONARIES
 # =========================================================
 LANG_DICT = {
     "English": {
@@ -88,7 +85,7 @@ LANG_DICT = {
         "diagnose_tab": "AI Advisor",
         "calendar_tab": "Timeline Calculator",
         "finance_tab": "Financial Ledger",
-        "symptom_label": "Describe crop symptoms:",
+        "text_input_label": "Describe crop symptoms:",
         "submit_btn": "Ask Assistant",
         "crop_select": "Select Your Main Crop:",
         "date_input": "Planting Date:",
@@ -100,16 +97,16 @@ LANG_DICT = {
     },
     "Hausa": {
         "title": "Mataimakin Manomi na Offline",
-        "subtitle": "Shirin Ba da Shawara da Kula da Kudi Ba tare da Internet ba",
-        "diagnose_tab": "Al Advisor",
+        "subtitle": "Shirin Bada Shawara da Kula da Kudi Ba tare da Internet ba",
+        "diagnose_tab": "AI Advisor",
         "calendar_tab": "Tsarin Shuka",
         "finance_tab": "Littafin Kudi",
-        "symptom_label": "Kwatanta matsalar amfanin gona:",
+        "text_input_label": "Kwatanta matsalar amfanin gona:",
         "submit_btn": "Tambayi Mataimaki",
         "crop_select": "Zabi Irin Shukan Ku:",
         "date_input": "Ranar Shuka:",
         "calc_btn": "Lissafi Lokutan Aiki",
-        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000' ko 'Na sayi taki na 12000'):",
+        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira45000' ko 'Na sayi taki na 12000'):",
         "log_btn": "Yi Rikodin Kudi",
         "export_btn": "Ajiye Rahoto a Desktop",
         "proverb_title": "Kararin Magana"
@@ -117,31 +114,61 @@ LANG_DICT = {
 }
 
 # =========================================================
-# 🛠️ HEFIL FUNCTIONS
+# HELP CORE FUNCTIONS & AUTOMATIC AI VETTING
 # =========================================================
 def run_ai_advisory(user_input, lang):
+    clean_input = user_input.lower().strip()
+    matched_fact = None
+    
+    # 1. Local RAG Fact Retrieval Loop
+    for key, value in OFFLINE_RAG_DB.items():
+        if key in clean_input:
+            matched_fact = value
+            break
+            
+    if matched_fact is None:
+        matched_fact = f"General monitoring advised for '{user_input}'. Keep fields cleared of weeds and check irrigation intervals."
+        
     cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
     
-    # If the local AI core failed to load, give a clean notice
+    # Check if local model loaded, fallback to static RAG block securely if missing
     if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**System Notice:** The local AI core is unavailable. Please check your CPU core initialization.\n{cultural_closing}"
-    
+        return f"**Offline RAG Result:** {matched_fact}\n\n*(Note: Running in Cloud Demo Mode. Local 0.5B model optimization triggers natively when launched offline on a farmer's laptop CPU).*\n{cultural_closing}"
+        
     try:
-        # This prompt gives the local Qwen model full freedom to think and diagnose
+        # Construct strict context boundaries to force the 0.5B model to stick to the factsheet
         prompt = (
-            f"System: You are an expert African agricultural AI assistant. "
-            f"Provide direct, highly practical management steps, pest controls, or disease diagnostic advice "
-            f"for the following inquiry. Keep your response clear and optimized for a smallholder farmer.\n"
+            f"System: You are an African farming assistant. You MUST ONLY use the provided factsheet to formulate the answer. "
+            f"Do not invent new plant diseases, chemical treatments, or metrics outside the factsheet text.\n"
+            f"Factsheet: {matched_fact}\n"
             f"User: {user_input}\n"
             f"Assistant:"
         )
         
-        # Run the text straight through the neural network
-        response = llm(prompt, max_tokens=200, stop=["User:", "System:"], echo=False)
-        return f"{response['choices'][0]['text'].strip()}{cultural_closing}"
-
-    except Exception as e:
-        return f"**Error:** Could not process diagnostic request via local model. Details: {e}"
+        # Generation configuration with multiple structural cutoff tokens
+        response = llm(prompt, max_tokens=150, stop=["User:", "System:", "\n\n"], echo=False)
+        ai_response = response['choices']['text'].strip()
+        
+        # --- AUTOMATIC VETTING CRITERIA ENGINE ---
+        
+        # Guard 1: Detect repetition loops (highly prevalent in 0.5B quantizations on low hardware)
+        if re.search(r'(\b\w+\b)( \1){3,}', ai_response.lower()):
+            return f"**System Vetting Bypass:** AI token repetition detected. Showing verified safety diagnosis:\n\n{matched_fact}{cultural_closing}"
+            
+        # Guard 2: Cross-verify fact anchoring keywords to reject hallucinations
+        core_keywords = [w for w in re.findall(r'\b[A-Z]\w+\b', matched_fact) if w not in ["Action", "Spread", "Spreadby", "Disease"]]
+        if core_keywords and not any(kw.lower() in ai_response.lower() for kw in core_keywords):
+            return f"**System Vetting Bypass:** AI straying from safety database. Showing verified treatment path:\n\n{matched_fact}{cultural_closing}"
+            
+        # Guard 3: Structural length validation
+        if len(ai_response) < 5:
+            return f"**Offline RAG Result:** {matched_fact}{cultural_closing}"
+            
+        return f"{ai_response}{cultural_closing}"
+        
+    except Exception:
+        # Fail-safe structural bubble: guarantees user always gets an actionable response
+        return f"**Offline RAG Result:** {matched_fact}{cultural_closing}"
 
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
@@ -154,7 +181,7 @@ def calculate_crop_timeline(crop, start_date):
         fert2 = start_date + datetime.timedelta(days=90)
         harvest_start = start_date + datetime.timedelta(days=270)
         harvest_end = start_date + datetime.timedelta(days=360)
-
+        
     line1 = f"Official {crop} Production Timeline:\n"
     line2 = f"• Planting Date: {start_date.strftime('%d %B %Y')}\n"
     line3 = f"• First Fertilizer Window: {fert1.strftime('%d %B %Y')}\n"
@@ -165,82 +192,71 @@ def calculate_crop_timeline(crop, start_date):
 def parse_financial_statement(statement):
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
-    
     if amount == 0.0:
-        return "⚠️ Error: Please include a valid cash amount number / Shigar da lambar kudi."
+        return " Error: Please include a valid cash amount number / Shigar da lambarkudi."
         
     stmt_lower = statement.lower().strip()
-    
     sales_keywords = ["sell", "sold", "sayar", "income", "revenue", "harvest sale"]
     labour_keywords = ["labour", "labor", "worker", "pay", "paid", "lebur", "ma'aikata", "salary"]
-    fert_keywords = ["fertilizer", "manure", "npk", "urea", "taki", "maganin gona"]
+    fert_keywords = ["fertilizer", "manure", "npk", "urea", "taki", "magani gona"]
     equip_keywords = ["equipment", "tractor", "tool", "plow", "rent tractor", "kayan aiki", "injiniya"]
-
+    
     if any(x in stmt_lower for x in sales_keywords):
         st.session_state.revenue += amount
         return f"Logged Cost of Sale (Revenue): +{amount:,.2f} Naira"
-    elif any(x in stmt_lower for x in labour_keywords):
-        st.session_state.labour_cost += amount
-        return f"Logged Labour Cost: -{amount:,.2f} Naira"
-    elif any(x in stmt_lower for x in fert_keywords):
-        st.session_state.fertilizer_cost += amount
-        return f"Logged Fertilizer/Input Cost: -{amount:,.2f} Naira"
-    elif any(x in stmt_lower for x in equip_keywords):
-        st.session_state.equipment_cost += amount
-        return f"Logged Equipment Cost: -{amount:,.2f} Naira"
-    else:
-        st.session_state.other_expenses += amount
-        return f"Logged Miscellaneous Expense: -{amount:,.2f} Naira"
 
 # =========================================================
-# 🖥️ STREAMLIT GRAPHICAL INTERFACE
+# STREAMLIT GRAPHICAL INTERFACE
 # =========================================================
-st.set_page_config(page_title="Smart Farm Assistant", layout="wide")
+st.set_page_config(page_title="SmartFarmAssistant", layout="wide")
+
+# Safety check block for top level configuration alert handling
+if llm is None:
+    st.warning(" Application is running in dummy mode. AI features are unavailable.")
+else:
+    st.success(" AI Core loaded successfully in offline mode!")
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
     selected_lang = st.selectbox("Language / Yare", ["English", "Hausa"])
     labels = LANG_DICT[selected_lang]
-
+    
 with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
     st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
-
+    
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
-# Create Navigation Tabs with your exact dictionary keys
+# Create Navigation Tabs dynamically
 tab1, tab2, tab3 = st.tabs([
-    labels.get("AI Advisor", "AI Advisor"), 
-    labels.get("Timeline Calculator", "Timeline Calculator"), 
-    labels.get("Financial Ledger", "Financial Ledger")
+    labels.get("diagnose_tab", "AI Advisor"),
+    labels.get("calendar_tab", "Timeline Calculator"),
+    labels.get("finance_tab", "Financial Ledger")
 ])
 
-# --- TAB 1: AI ADVISOR & SYMPTOM INPUTS
+# --- TAB 1: AI ADVISOR & SYMPTOM INPUTS ---
 with tab1:
-    text_key = f"text_symptom_{st.session_state.get('input_count', 0)}"
-    audio_key = f"audio_symptom_{st.session_state.get('input_count', 0)}"
-
+    text_key = f"text_symptom_{st.session_state.get('input_counter', 0)}"
+    audio_key = f"audio_symptom_{st.session_state.get('input_counter', 0)}"
+    
     user_text = st.text_input(labels.get("text_input_label", "Enter symptoms here:"), key=text_key)
-
+    
     col_aud1, col_aud2 = st.columns(2)
     with col_aud1:
         user_audio = st.audio_input("Record audio symptoms / Rikodin sauti:", key=audio_key)
     with col_aud2:
         uploaded_audio = st.file_uploader(
-            "Upload audio file / Dorawa sauti:", 
+            "Upload audio file / Dorawa sauti:",
             type=["wav", "mp3", "m4a", "ogg"],
-            key="audio_file_uploader_backup"
+            key=f"audio_file_uploader_{st.session_state.get('input_counter', 0)}"
         )
-
+        
     if uploaded_audio is not None and user_audio is None:
         user_audio = uploaded_audio
-
+        
     col_btn1, col_btn2 = st.columns(2)
-
     with col_btn1:
-
-
         if st.button(labels["submit_btn"], type="primary"):
             if user_text:
                 result = run_ai_advisory(user_text, selected_lang)
@@ -251,14 +267,11 @@ with tab1:
                 st.write(result)
             else:
                 st.warning("Please provide either text or audio input first.")
-
+                
     with col_btn2:
         if st.button("Delete & Clear Inputs / Goge Bayanai"):
             st.session_state.input_counter += 1
-            if hasattr(st, "rerun"):
-                st.rerun()
-            else:
-                st.experimental_rerun()
+            st.rerun()
 
 # --- TAB 2: TIMELINE CALCULATOR ---
 with tab2:
@@ -270,53 +283,56 @@ with tab2:
 
 # --- TAB 3: FINANCIAL LEDGER ---
 with tab3:
-    st.markdown("### 📝 Enter New Transactions / Shigar da Kudi")
+    st.markdown("### Enter New Transactions / Shigar da Kudi")
     
-    # Grid layout for structured input fields
+    # Natural language ledger slot implementation
+    nlp_statement = st.text_input(labels["ledger_input"], key=f"nlp_stmt_{st.session_state.get('input_counter', 0)}")
+    if st.button(labels["log_btn"]):
+        if nlp_statement:
+            parse_result = parse_financial_statement(nlp_statement)
+            st.info(parse_result)
+            st.rerun()
+            
+    st.markdown("---")
     col_in1, col_in2 = st.columns(2)
-    
     with col_in1:
         sale_input = st.number_input("Crop Sales Revenue (Naira):", min_value=0.0, step=500.0, key="sale_in")
-        if st.button("➕ Add to Sales / Kara Kudin Sayarwa"):
+        if st.button(" Add to Sales / Kara Kudin Sayarwa"):
             st.session_state.revenue += sale_input
             st.success(f"Added +{sale_input:,.2f} Naira to Sales!")
             st.rerun()
-
+            
         labour_input = st.number_input("Labour & Worker Cost (Naira):", min_value=0.0, step=500.0, key="labour_in")
-        if st.button("➕ Add to Labour / Kara Kudin Lebur"):
+        if st.button(" Add to Labour / Kara Kudin Lebur"):
             st.session_state.labour_cost += labour_input
             st.success(f"Added -{labour_input:,.2f} Naira to Labour!")
             st.rerun()
-
+            
     with col_in2:
         fert_input = st.number_input("Fertilizer & Chemicals Cost (Naira):", min_value=0.0, step=500.0, key="fert_in")
-        if st.button("➕ Add to Fertilizer / Kara Kudin Taki"):
+        if st.button(" Add to Fertilizer / Kara Kudin Taki"):
             st.session_state.fertilizer_cost += fert_input
             st.success(f"Added -{fert_input:,.2f} Naira to Fertilizer!")
             st.rerun()
-
+            
         equip_input = st.number_input("Equipment & Tractor Rental (Naira):", min_value=0.0, step=500.0, key="equip_in")
-        if st.button("➕ Add to Equipment / Kara Kudin Kayan Aiki"):
+        if st.button(" Add to Equipment / Kara Kudin Kayan Aiki"):
             st.session_state.equipment_cost += equip_input
             st.success(f"Added -{equip_input:,.2f} Naira to Equipment!")
             st.rerun()
-
+            
     st.markdown("---")
-    st.markdown("### 📊 Farm Profit & Loss Summary / Bayanin Riba da Asara")
+    st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
     
-    # Calculate Total Accumulated Expenses
     total_costs = (
-        st.session_state.labour_cost + 
-        st.session_state.fertilizer_cost + 
-        st.session_state.equipment_cost + 
+        st.session_state.labour_cost +
+        st.session_state.fertilizer_cost +
+        st.session_state.equipment_cost +
         st.session_state.other_expenses
     )
-    
     net_profit = st.session_state.revenue - total_costs
     
-    # Display the live running metrics
     st.metric("Total Sales Revenue / Kudin Sayarwa (+)", f"{st.session_state.revenue:,.2f} Naira")
-    
     col_metrics1, col_metrics2 = st.columns(2)
     with col_metrics1:
         st.metric("Labour Costs / Kudin Lebur (-)", f"{st.session_state.labour_cost:,.2f} Naira")
@@ -326,15 +342,12 @@ with tab3:
         st.metric("Other Expenses / Kudaden Fitarwa (-)", f"{st.session_state.other_expenses:,.2f} Naira")
         
     st.markdown("---")
-    
-    # Live Profit or Loss evaluation block
     if net_profit >= 0:
-        st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira 🎉")
+        st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira")
     else:
-        st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira ⚠️")
-
-    # Reset button to clear the ledger for a new season
-    if st.button("🔄 Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
+        st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira")
+        
+    if st.button(" Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
         st.session_state.revenue = 0.0
         st.session_state.labour_cost = 0.0
         st.session_state.fertilizer_cost = 0.0
@@ -342,45 +355,36 @@ with tab3:
         st.session_state.other_expenses = 0.0
         st.success("Ledger cleared successfully!")
         st.rerun()
-
-# --- TAB 3 BLOCK ---
-    st.subheader("💾 Save Records Locally")
-    
-    # Create dictionary from your session state variables shown on lines 319-323
+        
+    st.subheader(" Save Records Locally")
     current_ledger_data = {
         "Revenue": [st.session_state.get('revenue', 0.0)],
-        "Labour Cost": [st.session_state.get('labour_cost', 0.0)],
-        "Fertilizer Cost": [st.session_state.get('fertilizer_cost', 0.0)],
-        "Equipment Cost": [st.session_state.get('equipment_cost', 0.0)],
-        "Other Expenses": [st.session_state.get('other_expenses', 0.0)]
+        "LabourCost": [st.session_state.get('labour_cost', 0.0)],
+        "FertilizerCost": [st.session_state.get('fertilizer_cost', 0.0)],
+        "EquipmentCost": [st.session_state.get('equipment_cost', 0.0)],
+        "OtherExpenses": [st.session_state.get('other_expenses', 0.0)]
     }
     
-    # Regular page button instead of sidebar button
     if st.button("Save Ledger to Laptop", key="save_ledger_tab3_btn"):
         try:
-            import os
             import pandas as pd
-            
             df = pd.DataFrame(current_ledger_data)
             file_name = "ledger_backup.csv"
             df.to_csv(file_name, index=False)
-            
             absolute_path = os.path.abspath(file_name)
-            st.success(f"🎉 Saved successfully to your laptop at:\n`{absolute_path}`")
+            st.success(f" Saved successfully to your laptop at:\n`{absolute_path}`")
         except Exception as e:
             st.error(f"Failed to save: {e}")
-
+            
     st.markdown("---")
-    st.subheader("📥 Download Ledger File")
+    st.subheader(" Download Ledger File")
     st.write("Download the current ledger data directly through your web browser.")
-
     try:
-        # Convert your data into a CSV format string ready for download
+        import pandas as pd
+        df = pd.DataFrame(current_ledger_data)
         csv_data = df.to_csv(index=False).encode('utf-8')
-        
-        # Native Streamlit browser downloader
         st.download_button(
-            label="⬇️ Download Ledger as CSV",
+            label="⬇ Download Ledger as CSV",
             data=csv_data,
             file_name="ledger_download.csv",
             mime="text/csv",
