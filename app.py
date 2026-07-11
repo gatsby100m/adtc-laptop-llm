@@ -178,8 +178,8 @@ def run_ai_advisory(user_input, lang):
         response = llm(
             prompt, 
             max_tokens=250,                  
-            temperature=0.4,                 # Dropped to 0.4 to keep Qwen strictly following the retrieved facts
-            top_p=0.85,                      
+            temperature=0.0,                 # Dropped to 0.4 to keep Qwen strictly following the retrieved facts
+            top_p=0.1,                      
             stop=["<|im_end|>", "<|im_start|>", "User:", "System:"], 
             echo=False
         )
