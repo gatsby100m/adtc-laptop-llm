@@ -25,24 +25,46 @@ MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
 @st.cache_resource
 def initialize_offline_cores():
-    """Initializes Qwen and downloads/loads the 90MB vector model local cache."""
+    """
+    Automated Judge-Proof Setup Hook: Instantly checks for model parameters.
+    If the GGUF binary or the vector engine map files are missing on the judge's laptop, 
+    the script securely downloads them from the Hugging Face Hub on first boot.
+    """
     llm_instance = None
     bi_encoder = None
     
-    # Load Qwen LLM
-    if LLAMA_AVAILABLE and os.path.exists(MODEL_PATH):
-        try:
-            llm_instance = Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
-        except Exception:
-            llm_instance = None
+    # 1. Target Directory Guard
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    
+    # 2. Check if the Judge has the Qwen GGUF model binary local on disk
+    if LLAMA_AVAILABLE:
+        if not os.path.exists(MODEL_PATH):
+            with st.spinner("Downloading Qwen1.5-0.5B-Chat weights for the Laptop LLM Profile..."):
+                try:
+                    from huggingface_hub import hf_hub_download
+                    hf_hub_download(
+                        repo_id="Qwen/Qwen1.5-0.5B-Chat-GGUF",
+                        filename=MODEL_NAME,
+                        local_dir=MODEL_DIR,
+                        local_dir_use_symlinks=False
+                    )
+                except Exception as download_error:
+                    st.error(f"Weights transmission aborted: {str(download_error)}")
+        
+        # Instantiate model weights onto the judge's CPU cores
+        if os.path.exists(MODEL_PATH):
+            try:
+                llm_instance = Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
+            except Exception:
+                llm_instance = None
             
-    # Load Local 90MB Sentence Transformer Model
+    # 3. Load the Local 90MB Sentence Transformer Model for Vector Search
     if TRANSFORMERS_AVAILABLE:
-        try:
-            # Automatically downloads once on first launch, then runs completely offline
-            bi_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        except Exception:
-            bi_encoder = None
+        with st.spinner("Caching Semantic RAG Vector Map vectors..."):
+            try:
+                bi_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+            except Exception:
+                bi_encoder = None
             
     return llm_instance, bi_encoder
 
