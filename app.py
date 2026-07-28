@@ -387,37 +387,36 @@ with tab3:
         st.success(labels["reset_suc"])
         st.rerun()
         
-       st.subheader(labels["save_lbl"])
-    current_ledger_data = {
-        "Revenue": [st.session_state.revenue],
-        "LabourCost": [st.session_state.labour_cost],
-        "FertilizerCost": [st.session_state.fertilizer_cost],
-        "EquipmentCost": [st.session_state.equipment_cost],
-        "OtherExpenses": [st.session_state.other_expenses]
-    }
-    
-    if st.button(labels["save_btn"], key="save_btn_f"):
+        st.subheader(labels["save_lbl"])
+        current_ledger_data = {
+            "Revenue": [st.session_state.revenue],
+            "LabourCost": [st.session_state.labour_cost],
+            "FertilizerCost": [st.session_state.fertilizer_cost],
+            "EquipmentCost": [st.session_state.equipment_cost],
+            "OtherExpenses": [st.session_state.other_expenses]
+        }
+        
+        if st.button(labels["save_btn"], key="save_btn_f"):
+            try:
+                import pandas as pd
+                df = pd.DataFrame(current_ledger_data)
+                df.to_csv("ledger_backup.csv", index=False)
+                st.success(labels["save_suc"].format(os.path.abspath("ledger_backup.csv")))
+            except Exception as e:
+                st.error(f"Error: {e}")
+                
+        st.markdown("---")
+        st.subheader(labels["dl_lbl"])
+        st.write(labels["dl_desc"])
         try:
             import pandas as pd
             df = pd.DataFrame(current_ledger_data)
-            df.to_csv("ledger_backup.csv", index=False)
-            st.success(labels["save_suc"].format(os.path.abspath("ledger_backup.csv")))
-        except Exception as e:
-            st.error(f"Error: {e}")
-            
-    st.markdown("---")
-    st.subheader(labels["dl_lbl"])
-    st.write(labels["dl_desc"])
-    try:
-        import pandas as pd
-        df = pd.DataFrame(current_ledger_data)
-        st.download_button(
-            label=labels["dl_btn"],
-            data=df.to_csv(index=False).encode('utf-8'),
-            file_name="ledger_download.csv",
-            mime="text/csv",
-            key="dl_btn_f"
-        )
-    except Exception:
-        st.info("Error loading data container.")
- 
+            st.download_button(
+                label=labels["dl_btn"],
+                data=df.to_csv(index=False).encode('utf-8'),
+                file_name="ledger_download.csv",
+                mime="text/csv",
+                key="dl_btn_f"
+            )
+        except Exception:
+            st.info("Error loading data container.")
