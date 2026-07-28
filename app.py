@@ -304,6 +304,7 @@ with tab1:
                 st.write(run_ai_advisory("spots", selected_lang))
             else:
                 st.warning("Please provide an input.")
+
     with col_btn2:
         if st.button("Delete & Clear / Effacer"):
             st.session_state.input_counter += 1
