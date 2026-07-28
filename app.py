@@ -19,27 +19,27 @@ try:
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
 
+# Try importing Hugging Face translation tools
+try:
+    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+    HF_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    HF_TRANSFORMERS_AVAILABLE = False
+
 MODEL_DIR = "models"
 MODEL_NAME = "qwen1_5-0_5b-chat-q4_k_m.gguf"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
 @st.cache_resource
 def initialize_offline_cores():
-    """
-    Automated Judge-Proof Setup Hook: Instantly checks for model parameters.
-    If the GGUF binary or the vector engine map files are missing on the judge's laptop, 
-    the script securely downloads them from the Hugging Face Hub on first boot.
-    """
     llm_instance = None
     bi_encoder = None
     
-    # 1. Target Directory Guard
     os.makedirs(MODEL_DIR, exist_ok=True)
     
-    # 2. Check if the Judge has the Qwen GGUF model binary local on disk
     if LLAMA_AVAILABLE:
         if not os.path.exists(MODEL_PATH):
-            with st.spinner("Downloading Qwen1.5-0.5B-Chat weights for the Laptop LLM Profile..."):
+            with st.spinner("Downloading Qwen1.5-0.5B-Chat weights..."):
                 try:
                     from huggingface_hub import hf_hub_download
                     hf_hub_download(
@@ -50,61 +50,119 @@ def initialize_offline_cores():
                     )
                 except Exception as download_error:
                     st.error(f"Weights transmission aborted: {str(download_error)}")
-        
-        # Instantiate model weights onto the judge's CPU cores
+                    
         if os.path.exists(MODEL_PATH):
             try:
                 llm_instance = Llama(model_path=MODEL_PATH, n_ctx=1024, n_threads=4)
             except Exception:
                 llm_instance = None
-            
-    # 3. Load the Local 90MB Sentence Transformer Model for Vector Search
+
     if TRANSFORMERS_AVAILABLE:
         with st.spinner("Caching Semantic RAG Vector Map vectors..."):
             try:
                 bi_encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
             except Exception:
                 bi_encoder = None
-            
+                
     return llm_instance, bi_encoder
 
-# Global secure core initializations
+@st.cache_resource
+def load_hausa_translator_engine():
+    """
+    Directly loads and caches tokenizer and Seq2Seq structures for NLLB execution.
+    """
+    if HF_TRANSFORMERS_AVAILABLE:
+        try:
+            model_name = "mide6x/english-hausa-nllb"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            return tokenizer, model
+        except Exception as e:
+            st.error(f"Could not load Hugging Face Hausa Translator: {e}")
+            return None, None
+    return None, None
+
+# Global initializations
 llm, encoder = initialize_offline_cores()
+hf_tokenizer, hf_model = load_hausa_translator_engine()
 
 # =========================================================
-# UPGRADED SEMANTIC FARM KNOWLEDGE DATABASE
+# ADVANCED HYBRID VECTOR RAG ENGINE WITH STRICT HF TRANSLATION
 # =========================================================
-# You can add as many detailed paragraphs here as you want! 
-# The search engine handles matching sentences seamlessly.
-FARM_KNOWLEDGE_BASE = [
-    "Maize Fertilizer Schedule: The first fertilizer application for maize should happen exactly 21 days after planting using NPK 15-15-15 compound fertilizer to develop roots. The second application must occur 42 days after planting using Urea to provide a high nitrogen boost for stalk growth.",
-    "Cassava Leaf Spot Management: Cercospora Leaf Spot causes brown or dark spots on cassava leaves. This fungal infection thrives in humid conditions. Action: Ensure wide plant row spacing for better air ventilation, remove lower infected foliage, and apply copper-based fungicide if the outbreak is severe.",
-    "Maize Stem Borer Pest Control: Maize Stem Borers are insects that tunnel holes into maize stalks, leading to withered or dried leaves in the center funnel. Action: Check stalks for small entry holes. Prepare and apply a natural neem extract solution directly into the top leaf funnel to kill larvae safely.",
-    "General Soil and Watering Advice: Always monitor soil moisture before watering crops. Overwatering leads to waterlogged soil, suffocating plant roots and causing leaves to turn yellow or develop fungal spots. Keep farming plots cleared of competitive weeds.",
-    "Taki da baki doriya a kasar Hausa: Cutar taba ganyen masara (CMD) yana kawo baki ko doriya a ganye. Mataki mafi kyau shine cire shukan da ya rube da wuri don hana yaduwa, kuma a yi amfani da ingantaccen irin shuka mai jure cututtuka."
-]
+def run_ai_advisory(user_input, lang):
+    cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
+    matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
+    
+    # 1. Execute Semantic Math Vector Search
+    if encoder is not None and db_embeddings is not None:
+        try:
+            query_embedding = encoder.encode(user_input, convert_to_tensor=True)
+            cos_scores = util.cos_sim(query_embedding, db_embeddings)
+            best_match_idx = int(np.argmax(cos_scores.cpu().numpy()))
+            matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
+        except Exception:
+            pass
 
-# Pre-compute text vector math maps on startup to maximize battery/CPU performance
-if encoder is not None:
-    db_embeddings = encoder.encode(FARM_KNOWLEDGE_BASE, convert_to_tensor=True)
-else:
-    db_embeddings = None
+    # 2. Enforce English Response Prompt Generation on Qwen Core 
+    system_instruction = (
+        "You are an expert African agricultural advisor."
+        "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately."
+        "Elaborate on the details to sound friendly and encouraging, but your facts MUST stay completely anchored to the factsheet context."
+        "Do NOT invent unrelated facts, and write ONLY in clear English text without complex symbols."
+    )
+        
+    prompt = (
+        f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
+        f"<|im_start|>user\n{user_input}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )
+    
+    # Generate coherent core answer text using English token layout pathing
+    if LLAMA_AVAILABLE and llm is not None:
+        try:
+            response = llm(
+                prompt,
+                max_tokens=200,
+                temperature=0.1,  # Kept minimal to focus factual extraction explicitly
+                stop=["<|im_end|>", "<|im_start|>", "User:", "System:"],
+                echo=False
+            )
+            ai_response = response['choices'][0]['text'].strip()
+            ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)  # Erase unexpected artifacts
+        except Exception:
+            ai_response = matched_fact
+    else:
+        ai_response = matched_fact
 
-CULTURAL_PROVERBS = [
-    "Yoruba: Bí énìyàn bá șe gbingbin, béè ni yóò ṣe kórè. (As we sow, so shall we reap.)",
-    "Hausa: Mai hakuri yakan dafa dutse har ya sha romonsa. (The patient farmer cooks a stone and drinks its soup.)",
-    "Swahili: Mvumilivu hula mbivu. (A patient person eats ripe fruit.)",
-    "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
-]
+    # 3. Mandated Exclusive Hugging Face Hausa Translation Loop (No String Fallbacks)
+    if lang == "Hausa":
+        if hf_tokenizer is not None and hf_model is not None:
+            try:
+                # Prepare text sequence arrays natively
+                inputs = hf_tokenizer(ai_response, return_tensors="pt", padding=True)
+                
+                # Tag target tracking registers directly for Hausa latin matrices
+                hf_tokenizer.src_lang = "eng_Latn"
+                hf_tokenizer.tgt_lang = "hau_Latn"
+                hausa_token_id = hf_tokenizer.convert_tokens_to_ids(hf_tokenizer.tgt_lang)
+                
+                # Execute strict sequence-to-sequence translation processing
+                outputs = hf_model.generate(
+                    **inputs,
+                    forced_bos_token_id=hausa_token_id,
+                    max_length=256,
+                    num_beams=4
+                )
+                
+                # Decode the tensor arrays exclusively into translated Hausa text
+                ai_response = hf_tokenizer.decode(outputs[0], skip_special_tokens=True)
+            except Exception as e:
+                return f"**Translation Error Code:** Exception inside HuggingFace model engine loop execution: {str(e)}"
+        else:
+            return "**System Error:** HuggingFace translator environment tools are uninitialized or missing dependencies."
 
-# Initialize Granular Farm Ledger States
-if "revenue" not in st.session_state: st.session_state.revenue = 0.0
-if "labour_cost" not in st.session_state: st.session_state.labour_cost = 0.0
-if "fertilizer_cost" not in st.session_state: st.session_state.fertilizer_cost = 0.0
-if "equipment_cost" not in st.session_state: st.session_state.equipment_cost = 0.0
-if "other_expenses" not in st.session_state: st.session_state.other_expenses = 0.0
-if "input_counter" not in st.session_state: st.session_state.input_counter = 0
-
+    return f"{ai_response}{cultural_closing}"
+    
 # =========================================================
 # TRANSLATION DICTIONARIES
 # =========================================================
@@ -124,88 +182,42 @@ LANG_DICT = {
         "diagnose_tab": "AI Advisor", "calendar_tab": "Tsarin Shuka", "finance_tab": "Littafin Kudi",
         "text_input_label": "Kwatanta matsalar amfanin gona:", "submit_btn": "Tambayi Mataimaki",
         "crop_select": "Zabi Irin Shukan Ku:", "date_input": "Ranar Shuka:", "calc_btn": "Lissafi Lokutan Aiki",
-        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira45000'):", "log_btn": "Yi Rikodin Kudi",
+        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000'):", "log_btn": "Yi Rikodin Kudi",
         "export_btn": "Ajiye Rahoto a Desktop", "proverb_title": "Kararin Magana"
     }
 }
 
 # =========================================================
-# ADVANCED HYBRID VECTOR RAG ENGINE
+# TIMELINE AND FINANCIAL LEDGER PARSERS
 # =========================================================
-def run_ai_advisory(user_input, lang):
-    cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
-    matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
-    
-    # 1. Execute Semantic Math Vector Search if Encoder is online
-    if encoder is not None and db_embeddings is not None:
-        try:
-            # Turn user query into math vectors
-            query_embedding = encoder.encode(user_input, convert_to_tensor=True)
-            # Compute mathematical similarity scores against all database paragraphs
-            cos_scores = util.cos_sim(query_embedding, db_embeddings)[0]
-            # Find the position of the paragraph with the highest score
-            best_match_idx = int(np.argmax(cos_scores.cpu().numpy()))
-            matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
-        except Exception:
-            pass # Fall back safely to standard advice if math engine hits an anomaly
-            
-    # Quick exit path if Qwen is not loaded
-    if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
-        
-    try:
-        # 2. Instruct Qwen to read the factual paragraph and shape the conversational outcome
-        if lang == "Hausa":
-            system_instruction = (
-                "Kuna da babban masanin aikin gona na gona na Afirka. "
-                "Dole ne ku yi amfani da bayanan da aka bayar (Factsheet Context) don amsa tambayar. "
-                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI zaka yi amfani da shi! No Chinese characters."
-            )
-        else:
-            system_instruction = (
-                "You are an expert African agricultural advisor. "
-                "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately. "
-                "Elaborate on the details to sound friendly and encouraging, but your facts MUST stay completely anchored to the factsheet context. "
-                "Do NOT invent unrelated facts, and write ONLY in clear English text without Chinese characters."
-            )
-
-        prompt = (
-            f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
-            f"<|im_start|>user\n{user_input}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
-        )
-        
-        response = llm(
-            prompt, 
-            max_tokens=250,                  
-            temperature=0.0,                 # Dropped to 0.4 to keep Qwen strictly following the retrieved facts
-            top_p=0.1,                      
-            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"], 
-            echo=False
-        )
-        
-        ai_response = response['choices'][0]['text'].strip()
-        # Wipe out any unexpected Chinese tokens natively
-        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
-        
-        if len(ai_response) < 3:
-            return f"**Farming Truth Block:** {matched_fact}{cultural_closing}"
-            
-        return f"{ai_response}{cultural_closing}"
-        
-    except Exception as e:
-        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
-
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
         fert1 = start_date + datetime.timedelta(days=21)
         fert2 = start_date + datetime.timedelta(days=42)
         harvest_start = start_date + datetime.timedelta(days=90)
         harvest_end = start_date + datetime.timedelta(days=120)
+        return f"🌽 Maize Timeline:\n- Apply NPK: {fert1}\n- Apply Urea: {fert2}\n- Harvest Windows: {harvest_start} to {harvest_end}"
     else:
         fert1 = start_date + datetime.timedelta(days=30)
         fert2 = start_date + datetime.timedelta(days=90)
         harvest_start = start_date + datetime.timedelta(days=270)
+        return f"🌿 Cassava Timeline:\n- Weed/Fertilizer 1: {fert1}\n- Fertilizer 2: {fert2}\n- Ready to Harvest Around: {harvest_start}"
+
+def parse_financial_statement(statement):
+    """
+    Parses numeric text and records transactions contextually.
+    """
+    stmt_lower = statement.lower()
+    
+    # Extract numbers from text statement
+    numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
+    amount = numbers[0] if numbers else 0.0
+    
+    sales_keywords = ["sell", "sold", "sayar", "revenue", "sales", "riba"]
+    labour_keywords = ["labour", "worker", "lebur", "pay", "biya"]
+    fert_keywords = ["fertilizer", "chemical", "taki", "seed", "iri"]
+    equip_keywords = ["equipment", "tractor", "rental", "kayan", "traktò"]
+
     if any(x in stmt_lower for x in sales_keywords):
         st.session_state.revenue += amount
         return f"Logged Cost of Sale (Revenue): +{amount:,.2f} Naira"
@@ -225,23 +237,23 @@ def calculate_crop_timeline(crop, start_date):
 # =========================================================
 # STREAMLIT GRAPHICAL INTERFACE
 # =========================================================
-# Environment flags are set globally at top; layout begins safely below configuration thresholds
 st.set_page_config(page_title="SmartFarmAssistant", layout="wide")
 
 if llm is None:
-    st.warning(" ⚠️ Application running in dummy mode. AI vector features require active weights storage paths.")
+    st.warning("Application running in dummy mode. AI vector features require active weights storage paths.")
 else:
-    st.success(" ✅ AI Core and Semantic Vector Engine loaded successfully in offline mode!")
+    st.success("AI Core and Semantic Vector Engine loaded successfully in offline mode!")
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
     selected_lang = st.selectbox("Language / Yare", ["English", "Hausa"])
-    labels = LANG_DICT[selected_lang]
-    
+
+labels = LANG_DICT[selected_lang]
+
 with col_prov:
     prov_idx = int(time.time() // 10) % len(CULTURAL_PROVERBS)
     st.info(f"**{labels['proverb_title']}**\n{CULTURAL_PROVERBS[prov_idx]}")
-    
+
 st.title(labels["title"])
 st.subheader(labels["subtitle"])
 
@@ -255,7 +267,6 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     text_key = f"text_symptom_{st.session_state.get('input_counter', 0)}"
     audio_key = f"audio_symptom_{st.session_state.get('input_counter', 0)}"
-    
     user_text = st.text_input(labels.get("text_input_label", "Describe crop symptoms:"), key=text_key)
     
     col_aud1, col_aud2 = st.columns(2)
@@ -283,7 +294,6 @@ with tab1:
                 st.write(result)
             else:
                 st.warning("Please provide either text or audio input first.")
-                
     with col_btn2:
         if st.button("Delete & Clear Inputs / Goge Bayanai"):
             st.session_state.input_counter += 1
@@ -300,8 +310,8 @@ with tab2:
 # --- TAB 3: FINANCIAL LEDGER ---
 with tab3:
     st.markdown("### Enter New Transactions / Shigar da Kudi")
-    
     nlp_statement = st.text_input(labels["ledger_input"], key=f"nlp_stmt_{st.session_state.get('input_counter', 0)}")
+    
     if st.button(labels["log_btn"]):
         if nlp_statement:
             parse_result = parse_financial_statement(nlp_statement)
@@ -312,33 +322,32 @@ with tab3:
     col_in1, col_in2 = st.columns(2)
     with col_in1:
         sale_input = st.number_input("Crop Sales Revenue (Naira):", min_value=0.0, step=500.0, key="sale_in")
-        if st.button(" Add to Sales / Kara Kudin Sayarwa"):
+        if st.button("Add to Sales / Kara Kudin Sayarwa"):
             st.session_state.revenue += sale_input
             st.success(f"Added +{sale_input:,.2f} Naira to Sales!")
             st.rerun()
             
         labour_input = st.number_input("Labour & Worker Cost (Naira):", min_value=0.0, step=500.0, key="labour_in")
-        if st.button(" Add to Labour / Kara Kudin Lebur"):
+        if st.button("Add to Labour / Kara Kudin Lebur"):
             st.session_state.labour_cost += labour_input
             st.success(f"Added -{labour_input:,.2f} Naira to Labour!")
             st.rerun()
             
     with col_in2:
         fert_input = st.number_input("Fertilizer & Chemicals Cost (Naira):", min_value=0.0, step=500.0, key="fert_in")
-        if st.button(" Add to Fertilizer / Kara Kudin Taki"):
+        if st.button("Add to Fertilizer / Kara Kudin Taki"):
             st.session_state.fertilizer_cost += fert_input
             st.success(f"Added -{fert_input:,.2f} Naira to Fertilizer!")
             st.rerun()
             
         equip_input = st.number_input("Equipment & Tractor Rental (Naira):", min_value=0.0, step=500.0, key="equip_in")
-        if st.button(" Add to Equipment / Kara Kudin Kayan Aiki"):
+        if st.button("Add to Equipment / Kara Kudin Kayan Aiki"):
             st.session_state.equipment_cost += equip_input
             st.success(f"Added -{equip_input:,.2f} Naira to Equipment!")
             st.rerun()
-            
+
     st.markdown("---")
     st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
-    
     total_costs = (
         st.session_state.labour_cost +
         st.session_state.fertilizer_cost +
@@ -362,7 +371,35 @@ with tab3:
     else:
         st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira")
         
-    if st.button(" Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
+    if st.button("Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
+        st.session_state.revenue = 0.0
+    
+    st.markdown("---")
+    st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
+    total_costs = (
+        st.session_state.labour_cost +
+        st.session_state.fertilizer_cost +
+        st.session_state.equipment_cost +
+        st.session_state.other_expenses
+    )
+    net_profit = st.session_state.revenue - total_costs
+    
+    st.metric("Total Sales Revenue / Kudin Sayarwa (+)", f"{st.session_state.revenue:,.2f} Naira")
+    col_metrics1, col_metrics2 = st.columns(2)
+    with col_metrics1:
+        st.metric("Labour Costs / Kudin Lebur (-)", f"{st.session_state.labour_cost:,.2f} Naira")
+        st.metric("Fertilizer & Chemicals / Kudin Taki (-)", f"{st.session_state.fertilizer_cost:,.2f} Naira")
+    with col_metrics2:
+        st.metric("Equipment & Tractor / Kayan Aiki (-)", f"{st.session_state.equipment_cost:,.2f} Naira")
+        st.metric("Other Expenses / Kudaden Fitarwa (-)", f"{st.session_state.other_expenses:,.2f} Naira")
+        
+    st.markdown("---")
+    if net_profit >= 0:
+        st.success(f"**Net Profit / Riba Ta Tabbata:** {net_profit:,.2f} Naira")
+    else:
+        st.error(f"**Net Operating Loss / Asara Ta Fito:** {abs(net_profit):,.2f} Naira")
+        
+    if st.button("Reset Ledger / Goge Dukan Bayanan Kudi", type="secondary"):
         st.session_state.revenue = 0.0
         st.session_state.labour_cost = 0.0
         st.session_state.fertilizer_cost = 0.0
@@ -371,7 +408,7 @@ with tab3:
         st.success("Ledger cleared successfully!")
         st.rerun()
         
-    st.subheader(" Save Records Locally")
+    st.subheader("Save Records Locally")
     current_ledger_data = {
         "Revenue": [st.session_state.get('revenue', 0.0)],
         "LabourCost": [st.session_state.get('labour_cost', 0.0)],
@@ -387,12 +424,12 @@ with tab3:
             file_name = "ledger_backup.csv"
             df.to_csv(file_name, index=False)
             absolute_path = os.path.abspath(file_name)
-            st.success(f" Saved successfully to your laptop at:\n`{absolute_path}`")
+            st.success(f"Saved successfully to your laptop at:\n`{absolute_path}`")
         except Exception as e:
             st.error(f"Failed to save: {e}")
             
     st.markdown("---")
-    st.subheader(" Download Ledger File")
+    st.subheader("Download Ledger File")
     st.write("Download the current ledger data directly through your web browser.")
     try:
         import pandas as pd
