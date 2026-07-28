@@ -387,7 +387,7 @@ with tab3:
         st.success(labels["reset_suc"])
         st.rerun()
         
-    st.subheader(labels["save_lbl"])
+       st.subheader(labels["save_lbl"])
     current_ledger_data = {
         "Revenue": [st.session_state.revenue],
         "LabourCost": [st.session_state.labour_cost],
@@ -413,3 +413,11 @@ with tab3:
         df = pd.DataFrame(current_ledger_data)
         st.download_button(
             label=labels["dl_btn"],
+            data=df.to_csv(index=False).encode('utf-8'),
+            file_name="ledger_download.csv",
+            mime="text/csv",
+            key="dl_btn_f"
+        )
+    except Exception:
+        st.info("Error loading data container.")
+ 
