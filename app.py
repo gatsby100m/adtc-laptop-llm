@@ -299,13 +299,15 @@ with tab1:
     with col_btn1:
         if st.button(labels["submit_btn"], type="primary"):
             if user_text:
-                st.write(run_ai_advisory(user_text, selected_lang))
+                result = run_ai_advisory(user_text, selected_lang)
+                st.write(result)
             elif user_audio is not None:
-                st.write(run_ai_advisory("spots", selected_lang))
+                st.info("Audio received locally. (Audio processing engine pipeline placeholder)")
+                result = run_ai_advisory("spots", selected_lang)
+                st.write(result)
             else:
-                st.warning("Please provide an input.")
+                st.warning("Please provide either text or audio input first.")
 
-    with col_btn2:
         if st.button("Delete & Clear / Effacer"):
             st.session_state.input_counter += 1
             st.rerun()
