@@ -6,9 +6,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 
-# =========================================================
-# CORE CORE CORE CORE CORE CORE INITIALIZATION HOOKS
-# =========================================================
+# Try importing local AI and vector libraries
 try:
     from llama_cpp import Llama
     LLAMA_AVAILABLE = True
@@ -68,7 +66,7 @@ def initialize_offline_cores():
 llm, encoder = initialize_offline_cores()
 
 # =========================================================
-# MULTILINGUAL SEMANTIC FARM KNOWLEDGE DATABASE
+# UPGRADED SEMANTIC FARM KNOWLEDGE DATABASE
 # =========================================================
 FARM_KNOWLEDGE_BASE = [
     "Maize Fertilizer Schedule: The first fertilizer application for maize should happen exactly 21 days after planting using NPK 15-15-15 compound fertilizer to develop roots. The second application must occur 42 days after planting using Urea to provide a high nitrogen boost for stalk growth.",
@@ -90,19 +88,13 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gba mbo na ubi, owuwe ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# Initialize Granular Farm Ledger States (Expanded Structure)
-if "revenue" not in st.session_state:
-    st.session_state.revenue = 0.0
-if "labour_cost" not in st.session_state:
-    st.session_state.labour_cost = 0.0
-if "fertilizer_cost" not in st.session_state:
-    st.session_state.fertilizer_cost = 0.0
-if "equipment_cost" not in st.session_state:
-    st.session_state.equipment_cost = 0.0
-if "other_expenses" not in st.session_state:
-    st.session_state.other_expenses = 0.0
-if "input_counter" not in st.session_state:
-    st.session_state.input_counter = 0
+# Initialize Granular Farm Ledger States
+if "revenue" not in st.session_state: st.session_state.revenue = 0.0
+if "labour_cost" not in st.session_state: st.session_state.labour_cost = 0.0
+if "fertilizer_cost" not in st.session_state: st.session_state.fertilizer_cost = 0.0
+if "equipment_cost" not in st.session_state: st.session_state.equipment_cost = 0.0
+if "other_expenses" not in st.session_state: st.session_state.other_expenses = 0.0
+if "input_counter" not in st.session_state: st.session_state.input_counter = 0
 
 # =========================================================
 # TRANSLATION DICTIONARIES
@@ -111,88 +103,42 @@ LANG_DICT = {
     "English": {
         "title": "Offline Smart Farm Assistant",
         "subtitle": "Voice-First Agricultural Advisor & Ledger (Zero-Data Mode)",
-        "diagnose_tab": "AI Advisor",
-        "calendar_tab": "Timeline Calculator",
-        "finance_tab": "Financial Ledger",
-        "text_input_label": "Describe crop symptoms:",
-        "submit_btn": "Ask Assistant",
-        "crop_select": "Select Your Main Crop:",
-        "date_input": "Planting Date:",
-        "calc_btn": "Generate Farming Timeline",
-        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):",
-        "log_btn": "Log Transaction",
-        "proverb_title": "Traditional Wisdom",
-        "sales_lbl": "Crop Sales Revenue (Naira):",
-        "sales_btn": "Add to Sales",
-        "sales_suc": "Added +{:,.2f} Naira to Sales!",
-        "labour_lbl": "Labour & Worker Cost (Naira):",
-        "labour_btn": "Add to Labour",
-        "labour_suc": "Added -{:,.2f} Naira to Labour!",
-        "fert_lbl": "Fertilizer & Chemicals Cost (Naira):",
-        "fert_btn": "Add to Fertilizer",
-        "fert_suc": "Added -{:,.2f} Naira to Fertilizer!",
-        "equip_lbl": "Equipment & Tractor Rental (Naira):",
-        "equip_btn": "Add to Equipment",
-        "equip_suc": "Added -{:,.2f} Naira to Equipment!",
-        "summary_title": "### Farm Profit & Loss Summary",
-        "total_rev_lbl": "Total Sales Revenue (+)",
-        "labour_cost_lbl": "Labour Costs (-)",
-        "fert_cost_lbl": "Fertilizer & Chemicals (-)",
-        "equip_cost_lbl": "Equipment & Tractor (-)",
-        "other_cost_lbl": "Other Expenses (-)",
-        "profit_msg": "**Net Profit:** {:,.2f} Naira",
-        "loss_msg": "**Net Operating Loss:** {:,.2f} Naira",
-        "reset_btn": "Reset Ledger",
-        "reset_suc": "Ledger cleared successfully!",
-        "save_lbl": "Save Records Locally",
-        "save_btn": "Save Ledger to Laptop",
-        "save_suc": "Saved successfully to your laptop at:\n``",
-        "dl_lbl": "Download Ledger File",
-        "dl_desc": "Download current data directly via browser.",
-        "dl_btn": "⬇ Download Ledger as CSV"
+        "diagnose_tab": "AI Advisor", "calendar_tab": "Timeline Calculator", "finance_tab": "Financial Ledger",
+        "text_input_label": "Describe crop symptoms:", "submit_btn": "Ask Assistant",
+        "crop_select": "Select Your Main Crop:", "date_input": "Planting Date:", "calc_btn": "Generate Farming Timeline",
+        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):", "log_btn": "Log Transaction",
+        "export_btn": "Save Local Text Report to Desktop", "proverb_title": "Traditional Wisdom",
+        "sales_lbl": "Crop Sales Revenue (Naira):", "sales_btn": "Add to Sales", "sales_suc": "Added +{:,.2f} Naira to Sales!",
+        "labour_lbl": "Labour & Worker Cost (Naira):", "labour_btn": "Add to Labour", "labour_suc": "Added -{:,.2f} Naira to Labour!",
+        "fert_lbl": "Fertilizer & Chemicals Cost (Naira):", "fert_btn": "Add to Fertilizer", "fert_suc": "Added -{:,.2f} Naira to Fertilizer!",
+        "equip_lbl": "Equipment & Tractor Rental (Naira):", "equip_btn": "Add to Equipment", "equip_suc": "Added -{:,.2f} Naira to Equipment!",
+        "summary_title": "### Farm Profit & Loss Summary", "total_rev_lbl": "Total Sales Revenue (+)", 
+        "labour_cost_lbl": "Labour Costs (-)", "fert_cost_lbl": "Fertilizer & Chemicals (-)",
+        "equip_cost_lbl": "Equipment & Tractor (-)", "other_cost_lbl": "Other Expenses (-)",
+        "profit_msg": "**Net Profit:** {:,.2f} Naira", "loss_msg": "**Net Operating Loss:** {:,.2f} Naira",
+        "reset_btn": "Reset Ledger", "reset_suc": "Ledger cleared successfully!",
+        "save_lbl": "Save Records Locally", "save_btn": "Save Ledger to Laptop", "save_suc": "Saved successfully to your laptop at:\n`{}`",
+        "dl_lbl": "Download Ledger File", "dl_desc": "Download current data directly via browser.", "dl_btn": "⬇ Download Ledger as CSV"
     },
     "French": {
         "title": "Assistant Agricole Intelligent",
         "subtitle": "Conseiller Agricole et Grand Livre (Mode Sans Connexion)",
-        "diagnose_tab": "Conseiller IA",
-        "calendar_tab": "Calculateur de Calendrier",
-        "finance_tab": "Grand Livre Financier",
-        "text_input_label": "Décrivez les symptômes de la culture :",
-        "submit_btn": "Demander à l'assistant",
-        "crop_select": "Sélectionnez votre culture principale :",
-        "date_input": "Date de plantation :",
-        "calc_btn": "Générer le calendrier agricole",
-        "ledger_input": "Transaction (ex: 'J'ai vendu du maïs pour 45000 Naira') :",
-        "log_btn": "Enregistrer la transaction",
-        "proverb_title": "Sagesse Traditionnelle",
-        "sales_lbl": "Revenu des ventes de récoltes (Naira) :",
-        "sales_btn": "Ajouter aux Ventes",
-        "sales_suc": "Ajouté +{:,.2f} Naira aux Ventes !",
-        "labour_lbl": "Coût de la main-d'œuvre (Naira) :",
-        "labour_btn": "Ajouter à la Main-d'œuvre",
-        "labour_suc": "Ajouté -{:,.2f} Naira à la Main-d'œuvre !",
-        "fert_lbl": "Coût des engrais (Naira) :",
-        "fert_btn": "Ajouter aux Engrais",
-        "fert_suc": "Ajouté -{:,.2f} Naira aux Engrais !",
-        "equip_lbl": "Location d'équipement (Naira) :",
-        "equip_btn": "Ajouter à l'Équipement",
-        "equip_suc": "Ajouté -{:,.2f} Naira à l'Équipement !",
-        "summary_title": "### Résumé des Pertes et Profits",
-        "total_rev_lbl": "Revenu Total des Ventes (+)",
-        "labour_cost_lbl": "Coûts de la Main-d'œuvre (-)",
-        "fert_cost_lbl": "Engrais & Produits Chimiques (-)",
-        "equip_cost_lbl": "Équipement & Tracteur (-)",
-        "other_cost_lbl": "Autres Dépenses (-)",
-        "profit_msg": "**Bénéfice Net :** {:,.2f} Naira",
-        "loss_msg": "**Perte d'Exploitation Nette :** {:,.2f} Naira",
-        "reset_btn": "Réinitialiser",
-        "reset_suc": "Grand Livre effacé avec succès !",
-        "save_lbl": "Enregistrer les Dossiers Localement",
-        "save_btn": "Sauvegarder sur l'Ordinateur",
-        "save_suc": "Enregistré avec succès sur votre ordinateur à :\n``",
-        "dl_lbl": "Télécharger le Fichier",
-        "dl_desc": "Téléchargez les données actuelles via votre navigateur web.",
-        "dl_btn": "⬇ Télécharger en CSV"
+        "diagnose_tab": "Conseiller IA", "calendar_tab": "Calculateur de Calendrier", "finance_tab": "Grand Livre Financier",
+        "text_input_label": "Décrivez les symptômes de la culture :", "submit_btn": "Demander à l'assistant",
+        "crop_select": "Sélectionnez votre culture principale :", "date_input": "Date de plantation :", "calc_btn": "Générer le calendrier agricole",
+        "ledger_input": "Transaction (ex: 'J'ai vendu du maïs pour 45000 Naira') :", "log_btn": "Enregistrer la transaction",
+        "export_btn": "Sauvegarder le rapport sur l'ordinateur", "proverb_title": "Sagesse Traditionnelle",
+        "sales_lbl": "Revenu des ventes (Naira) :", "sales_btn": "Ajouter aux Ventes", "sales_suc": "Ajouté +{:,.2f} Naira aux Ventes !",
+        "labour_lbl": "Coût de la main-d'œuvre (Naira) :", "labour_btn": "Ajouter à la Main-d'œuvre", "labour_suc": "Ajouté -{:,.2f} Naira à la Main-d'œuvre !",
+        "fert_lbl": "Coût des engrais (Naira) :", "fert_btn": "Ajouter aux Engrais", "fert_suc": "Ajouté -{:,.2f} Naira aux Engrais !",
+        "equip_lbl": "Location d'équipement (Naira) :", "equip_btn": "Ajouter à l'Équipement", "equip_suc": "Ajouté -{:,.2f} Naira à l'Équipement !",
+        "summary_title": "### Résumé des Pertes et Profits", "total_rev_lbl": "Revenu Total des Ventes (+)", 
+        "labour_cost_lbl": "Coûts de la Main-d'œuvre (-)", "fert_cost_lbl": "Engrais & Produits Chimiques (-)",
+        "equip_cost_lbl": "Équipement & Tracteur (-)", "other_cost_lbl": "Autres Dépenses (-)",
+        "profit_msg": "**Bénéfice Net :** {:,.2f} Naira", "loss_msg": "**Perte d'Exploitation Nette :** {:,.2f} Naira",
+        "reset_btn": "Réinitialiser", "reset_suc": "Grand Livre effacé avec succès !",
+        "save_lbl": "Enregistrer les Dossiers Localement", "save_btn": "Sauvegarder sur l'Ordinateur", "save_suc": "Enregistré avec succès sur votre ordinateur à :\n`{}`",
+        "dl_lbl": "Télécharger le Fichier", "dl_desc": "Téléchargez les données actuelles via votre navigateur web.", "dl_btn": "⬇ Télécharger en CSV"
     }
 }
 
@@ -201,6 +147,12 @@ LANG_DICT = {
 # =========================================================
 def run_ai_advisory(user_input, lang):
     cultural_closing = "\n\n*Que votre récolte soit abondante et fructueuse !*" if lang == "French" else "\n\n*May your harvest be heavy and rewarding!*"
+    matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
+    
+    if encoder is not None and db_embeddings is not None:
+        try:
+            query_embedding = encoder.encode(user_input, convert_to_tensor=True)
+            cos_scores = util.cos_sim(query_embedding, db_embeddings)
 
 # =========================================================
 # TIMELINE AND FINANCIAL LEDGER PARSERS
@@ -232,6 +184,9 @@ def calculate_crop_timeline(crop, start_date, lang="English"):
             return f"🌿 Cassava Timeline:\n- Weed/Fertilizer 1: {fert1}\n- Fertilizer 2: {fert2}\n- Ready to Harvest Around: {harvest_start}"
 
 def parse_financial_statement(statement, lang="English"):
+    """
+    Parses numeric text strings and saves financial record entries contextually.
+    """
     stmt_lower = statement.lower()
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
@@ -269,7 +224,7 @@ else:
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
-    selected_lang = st.selectbox("Language / Langue", ["English", "French"])
+    selected_lang = st.selectbox("Language / Yare", ["English", "French"])
 
 labels = LANG_DICT[selected_lang]
 
@@ -307,7 +262,7 @@ with tab1:
                 st.write(result)
             else:
                 st.warning("Please provide either text or audio input first.")
-
+    with col_btn2:
         if st.button("Delete & Clear / Effacer"):
             st.session_state.input_counter += 1
             st.rerun()
@@ -327,7 +282,8 @@ with tab3:
     nlp_statement = st.text_input(labels["ledger_input"], key=f"nlp_{st.session_state.input_counter}")
     if st.button(labels["log_btn"]):
         if nlp_statement:
-            st.info(parse_financial_statement(nlp_statement, selected_lang))
+            parse_result = parse_financial_statement(nlp_statement, selected_lang)
+            st.info(parse_result)
             st.rerun()
             
     st.markdown("---")
@@ -390,36 +346,19 @@ with tab3:
         st.success(labels["reset_suc"])
         st.rerun()
         
-        st.subheader(labels["save_lbl"])
-        current_ledger_data = {
-            "Revenue": [st.session_state.revenue],
-            "LabourCost": [st.session_state.labour_cost],
-            "FertilizerCost": [st.session_state.fertilizer_cost],
-            "EquipmentCost": [st.session_state.equipment_cost],
-            "OtherExpenses": [st.session_state.other_expenses]
-        }
-        
-        if st.button(labels["save_btn"], key="save_btn_f"):
-            try:
-                import pandas as pd
-                df = pd.DataFrame(current_ledger_data)
-                df.to_csv("ledger_backup.csv", index=False)
-                st.success(labels["save_suc"].format(os.path.abspath("ledger_backup.csv")))
-            except Exception as e:
-                st.error(f"Error: {e}")
-                
-        st.markdown("---")
-        st.subheader(labels["dl_lbl"])
-        st.write(labels["dl_desc"])
+    st.subheader(labels["save_lbl"])
+    current_ledger_data = {
+        "Revenue": [st.session_state.revenue],
+        "LabourCost": [st.session_state.labour_cost],
+        "FertilizerCost": [st.session_state.fertilizer_cost],
+        "EquipmentCost": [st.session_state.equipment_cost],
+        "OtherExpenses": [st.session_state.other_expenses]
+    }
+    
+    if st.button(labels["save_btn"], key="save_btn_f"):
         try:
             import pandas as pd
             df = pd.DataFrame(current_ledger_data)
-            st.download_button(
-                label=labels["dl_btn"],
-                data=df.to_csv(index=False).encode('utf-8'),
-                file_name="ledger_download.csv",
-                mime="text/csv",
-                key="dl_btn_f"
-            )
-        except Exception:
-            st.info("Error loading data container.")
+            df.to_csv("ledger_backup.csv", index=False)
+            st.success(labels["save_suc"].format(os.path.abspath("ledger_backup.csv")))
+        except Exception as e:
