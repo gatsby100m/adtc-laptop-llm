@@ -153,6 +153,50 @@ def run_ai_advisory(user_input, lang):
         try:
             query_embedding = encoder.encode(user_input, convert_to_tensor=True)
             cos_scores = util.cos_sim(query_embedding, db_embeddings)
+            best_match_idx = int(np.argmax(cos_scores.cpu().numpy()))
+            matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
+        except Exception:
+            pass
+
+    if (not LLAMA_AVAILABLE) or (llm is None):
+        return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
+        
+    try:
+        if lang == "French":
+            system_instruction = (
+                "Vous êtes un expert conseiller agricole africain."
+                "Vous devez utiliser les données fournies (Factsheet Context) pour répondre à la question."
+                "Ne créez pas de faits imaginaires. UTILISEZ UNIQUEMENT LA LANGUE FRANÇAISE !"
+            )
+        else:
+            system_instruction = (
+                "You are an expert African agricultural advisor."
+                "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately."
+                "Elaborate on the details to sound friendly and encouraging, but your facts MUST stay completely anchored to the factsheet context."
+                "Do NOT invent unrelated facts, and write ONLY in clear English text without Chinese characters."
+            )
+            
+        prompt = (
+            f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
+            f"<|im_start|>user\n{user_input}<|im_end|>\n"
+            f"<|im_start|>assistant\n"
+        )
+        response = llm(
+            prompt,
+            max_tokens=250,
+            temperature=0.0,
+            top_p=0.1,
+            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"],
+            echo=False
+        )
+        ai_response = response['choices']['text'].strip()
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
+        
+        if len(ai_response) < 3:
+            return f"**Farming Truth Block:** {matched_fact}{cultural_closing}"
+        return f"{ai_response}{cultural_closing}"
+    except Exception as e:
+        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
 
 # =========================================================
 # TIMELINE AND FINANCIAL LEDGER PARSERS
@@ -184,9 +228,6 @@ def calculate_crop_timeline(crop, start_date, lang="English"):
             return f"🌿 Cassava Timeline:\n- Weed/Fertilizer 1: {fert1}\n- Fertilizer 2: {fert2}\n- Ready to Harvest Around: {harvest_start}"
 
 def parse_financial_statement(statement, lang="English"):
-    """
-    Parses numeric text strings and saves financial record entries contextually.
-    """
     stmt_lower = statement.lower()
     numbers = [float(s) for s in re.findall(r'\b\d+\b', statement)]
     amount = sum(numbers) if numbers else 0.0
@@ -224,7 +265,7 @@ else:
 
 col_lang, col_prov = st.columns(2)
 with col_lang:
-    selected_lang = st.selectbox("Language / Yare", ["English", "French"])
+    selected_lang = st.selectbox("Language / Langue", ["English", "French"])
 
 labels = LANG_DICT[selected_lang]
 
@@ -245,120 +286,3 @@ with tab1:
     with col_aud1:
         user_audio = st.audio_input("Record audio / Enregistrer l'audio:", key=f"aud_{st.session_state.input_counter}")
     with col_aud2:
-        uploaded_audio = st.file_uploader("Upload audio / Charger l'audio:", type=["wav", "mp3", "m4a", "ogg"], key=f"file_{st.session_state.input_counter}")
-        
-    if uploaded_audio is not None and user_audio is None:
-        user_audio = uploaded_audio
-        
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button(labels["submit_btn"], type="primary"):
-            if user_text:
-                result = run_ai_advisory(user_text, selected_lang)
-                st.write(result)
-            elif user_audio is not None:
-                st.info("Audio received locally. (Audio processing engine pipeline placeholder)")
-                result = run_ai_advisory("spots", selected_lang)
-                st.write(result)
-            else:
-                st.warning("Please provide either text or audio input first.")
-    with col_btn2:
-        if st.button("Delete & Clear / Effacer"):
-            st.session_state.input_counter += 1
-            st.rerun()
-
-# --- TAB 2: TIMELINE CALCULATOR ---
-with tab2:
-    selected_crop = st.selectbox(labels["crop_select"], ["Maize", "Cassava"])
-    planting_date = st.date_input(labels["date_input"], datetime.date.today())
-    if st.button(labels["calc_btn"]):
-        st.text(calculate_crop_timeline(selected_crop, planting_date, selected_lang))
-
-# --- TAB 3: FINANCIAL LEDGER ---
-with tab3:
-    header_clean = labels['ledger_input'].split('(')[0].strip()
-    st.markdown(f"### {header_clean}")
-    
-    nlp_statement = st.text_input(labels["ledger_input"], key=f"nlp_{st.session_state.input_counter}")
-    if st.button(labels["log_btn"]):
-        if nlp_statement:
-            parse_result = parse_financial_statement(nlp_statement, selected_lang)
-            st.info(parse_result)
-            st.rerun()
-            
-    st.markdown("---")
-    col_in1, col_in2 = st.columns(2)
-    with col_in1:
-        sale_input = st.number_input(labels["sales_lbl"], min_value=0.0, step=500.0, key="sale_in")
-        if st.button(labels["sales_btn"]):
-            st.session_state.revenue += sale_input
-            st.success(labels["sales_suc"].format(sale_input))
-            st.rerun()
-            
-        labour_input = st.number_input(labels["labour_lbl"], min_value=0.0, step=500.0, key="labour_in")
-        if st.button(labels["labour_btn"]):
-            st.session_state.labour_cost += labour_input
-            st.success(labels["labour_suc"].format(labour_input))
-            st.rerun()
-            
-    with col_in2:
-        fert_input = st.number_input(labels["fert_lbl"], min_value=0.0, step=500.0, key="fert_in")
-        if st.button(labels["fert_btn"]):
-            st.session_state.fertilizer_cost += fert_input
-            st.success(labels["fert_suc"].format(fert_input))
-            st.rerun()
-            
-        equip_input = st.number_input(labels["equip_lbl"], min_value=0.0, step=500.0, key="equip_in")
-        if st.button(labels["equip_btn"]):
-            st.session_state.equipment_cost += equip_input
-            st.success(labels["equip_suc"].format(equip_input))
-            st.rerun()
-            
-    st.markdown("---")
-    st.markdown(labels["summary_title"])
-    
-    total_costs = (
-        st.session_state.labour_cost + 
-        st.session_state.fertilizer_cost + 
-        st.session_state.equipment_cost + 
-        st.session_state.other_expenses
-    )
-    net_profit = st.session_state.revenue - total_costs
-    
-    st.metric(labels["total_rev_lbl"], f"{st.session_state.revenue:,.2f} Naira")
-    c_m1, c_m2 = st.columns(2)
-    with c_m1:
-        st.metric(labels["labour_cost_lbl"], f"{st.session_state.labour_cost:,.2f} Naira")
-        st.metric(labels["fert_cost_lbl"], f"{st.session_state.fertilizer_cost:,.2f} Naira")
-    with c_m2:
-        st.metric(labels["equip_cost_lbl"], f"{st.session_state.equipment_cost:,.2f} Naira")
-        st.metric(labels["other_cost_lbl"], f"{st.session_state.other_expenses:,.2f} Naira")
-        
-    st.markdown("---")
-    if net_profit >= 0:
-        st.success(labels["profit_msg"].format(net_profit))
-    else:
-        st.error(labels["loss_msg"].format(abs(net_profit)))
-        
-    if st.button(labels["reset_btn"], type="secondary"):
-        for state_var in ["revenue", "labour_cost", "fertilizer_cost", "equipment_cost", "other_expenses"]:
-            st.session_state[state_var] = 0.0
-        st.success(labels["reset_suc"])
-        st.rerun()
-        
-    st.subheader(labels["save_lbl"])
-    current_ledger_data = {
-        "Revenue": [st.session_state.revenue],
-        "LabourCost": [st.session_state.labour_cost],
-        "FertilizerCost": [st.session_state.fertilizer_cost],
-        "EquipmentCost": [st.session_state.equipment_cost],
-        "OtherExpenses": [st.session_state.other_expenses]
-    }
-    
-    if st.button(labels["save_btn"], key="save_btn_f"):
-        try:
-            import pandas as pd
-            df = pd.DataFrame(current_ledger_data)
-            df.to_csv("ledger_backup.csv", index=False)
-            st.success(labels["save_suc"].format(os.path.abspath("ledger_backup.csv")))
-        except Exception as e:
