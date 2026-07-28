@@ -285,4 +285,4 @@ with tab1:
     col_aud1, col_aud2 = st.columns(2)
 with col_aud1:
         user_audio = st.audio_input("Record audio / Enregistrer l'audio:", key=f"aud_{st.session_state.input_counter}")
-with col_aud2:
+
