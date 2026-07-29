@@ -153,7 +153,7 @@ def run_ai_advisory(user_input, lang):
         # FIXED CONTEXT-CONTINUATION PROMPT (NO STRUCTURAL TAGS)
         # =========================================================
         # 2. Assign localized system paths cleanly with strict indentation alignment
-        try:
+    try:
         # 1. Provide a short, explicit constraint instruction
         if lang == "Hausa":
             system_instruction = "Kuna da masanin aikin gona. Yi amfani da bayanan da aka bayar kawai!"
