@@ -200,7 +200,7 @@ def run_ai_advisory(user_input, lang):
         st.sidebar.error(f"Engine Exception: {str(e)}")
         return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
         
-        try:
+    try:
         # 2. Instruct InkubaLM to read the factual paragraph and shape the conversational outcome
         if lang == "Hausa":
             system_instruction = (
