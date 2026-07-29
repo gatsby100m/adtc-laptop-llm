@@ -19,11 +19,12 @@ try:
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
 
-# CONVERTED: Target the multilingual instruction-aligned Qwen2.5 model
+# =====================================================================
+# ONLY FIX THESE EXACT TWO LINES AT THE TOP OF YOUR SCRIPT
+# =====================================================================
 MODEL_DIR = "models"
-MODEL_NAME = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+MODEL_NAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"  # FIXED: Changed to lowercase letters
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
-
 @st.cache_resource
 def initialize_offline_cores():
     """
