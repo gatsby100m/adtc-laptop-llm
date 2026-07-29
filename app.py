@@ -158,7 +158,6 @@ def run_ai_advisory(user_input, lang):
                 f"Tambaya: {user_input}\n"
                 f"Amsa cikin Harshen Hausa: Dangane da bayanan gona da aka bayar,"
             )
-    else:
             
         # =========================================================
         # FREE GENERATION PROMPT (NO CONTEXT EXTRACTION LAYER)
