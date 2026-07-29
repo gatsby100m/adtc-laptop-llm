@@ -91,6 +91,10 @@ if encoder is not None:
 else:
     db_embeddings = None
 
+# =========================================================
+# PATCH 2: DATA STRUCTURES, LEDGER REBOOTS & LOCALIZATION (FIXED)
+# =========================================================
+
 CULTURAL_PROVERBS = [
     "Yoruba: Bí énìyàn bá șe gbingbin, béèni yóò șe kórè. (As we sow, so shall we reap.)",
     "Hausa: Mai hakuri yukan dafa dutse har ya sha romonsa. (The patient farmer cooks a stone and drinks its soup.)",
@@ -98,55 +102,33 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gbambo na ubi, owu we ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# Initialize Granular Farm Ledger States
-if "revenue" not in st.session_state: st.session_state.revenue = 0.0
-if "labour_cost" not in st.session_state: st.session_state.labour_cost = 0.0
-if "fertilizer_cost" not in st.session_state: st.session_state.fertilizer_cost = 0.0
-if "equipment_cost" not in st.session_state: st.session_state.equipment_cost = 0.0
-if "other_expenses" not in st.session_state: st.session_state.other_expenses = 0.0
-if "input_counter" not in st.session_state: st.session_state.input_counter = 0
+# Ensure your original UI transaction ledger trackers initialize correctly
+for state_key, default_val in [("revenue", 0.0), ("labour_cost", 0.0), ("fertilizer_cost", 0.0),
+                               ("equipment_cost", 0.0), ("other_expenses", 0.0), ("input_counter", 0)]:
+    if state_key not in st.session_state:
+        st.session_state[state_key] = default_val
 
-# =========================================================
-# TRANSLATION DICTIONARIES
-# =========================================================
 LANG_DICT = {
     "English": {
         "title": "Offline Smart Farm Assistant",
         "subtitle": "Voice-First Agricultural Advisor & Ledger (Zero-Data Mode)",
-        "diagnose_tab": "AI Advisor", 
-        "calendar_tab": "Timeline Calculator", 
-        "finance_tab": "Financial Ledger",
-        "text_input_label": "Describe crop symptoms:", 
-        "submit_btn": "Ask Assistant",
-        "crop_select": "Select Your Main Crop:", 
-        "date_input": "Planting Date:", 
-        "calc_btn": "Generate Farming Timeline",
-        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):", 
-        "log_btn": "Log Transaction",
-        "export_btn": "Save Local Text Report to Desktop", 
-        "proverb_title": "Traditional Wisdom"
+        "diagnose_tab": "AI Advisor", "calendar_tab": "Timeline Calculator", "finance_tab": "Financial Ledger",
+        "text_input_label": "Describe crop symptoms:", "submit_btn": "Ask Assistant",
+        "crop_select": "Select Your Main Crop:", "date_input": "Planting Date:", "calc_btn": "Generate Farming Timeline",
+        "ledger_input": "Transaction (e.g., 'I sold maize for 45000 Naira'):", "log_btn": "Log Transaction",
+        "export_btn": "Save Local Text Report to Desktop", "proverb_title": "Traditional Wisdom"
     },
     "Hausa": {
         "title": "Mataimakin Manomi na Offline",
         "subtitle": "Shirin Bada Shawara da Kula da Kudi Ba tare da Internet ba",
-        "diagnose_tab": "AI Advisor", 
-        "calendar_tab": "Tsarin Shuka", 
-        "finance_tab": "Littafin Kudi",
-        "text_input_label": "Kwatanta matsalar amfanin gona:", 
-        "submit_btn": "Tambayi Mataimaki",
-        "crop_select": "Zabi Irin Shukan Ku:", 
-        "date_input": "Ranar Shuka:", 
-        "calc_btn": "Lissafi Lokutan Aiki",
-        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000'):", 
-        "log_btn": "Yi Rikodin Kudi",
-        "export_btn": "Ajiye Rahoto a Desktop", 
-        "proverb_title": "Kararin Magana"
+        "diagnose_tab": "AI Advisor", "calendar_tab": "Tsarin Shuka", "finance_tab": "Littafin Kudi",
+        "text_input_label": "Kwatanta matsalar amfanin gona:", "submit_btn": "Tambayi Mataimaki",
+        "crop_select": "Zabi Irin Shukan Ku:", "date_input": "Ranar Shuka:", "calc_btn": "Lissafi Lokutan Aiki",
+        "ledger_input": "Bayanin Kudi (Misali: 'Na sayar da masara akan Naira 45000'):", "log_btn": "Yi Rikodin Kudi",
+        "export_btn": "Ajiye Rahoto a Desktop", "proverb_title": "Kararin Magana"
     }
 }
 
-# =========================================================
-# ADVANCED HYBRID VECTOR RAG ENGINE
-# =========================================================
 def run_ai_advisory(user_input, lang):
     cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
     matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
@@ -154,20 +136,64 @@ def run_ai_advisory(user_input, lang):
     # 1. Execute Semantic Math Vector Search if Encoder is online
     if encoder is not None and db_embeddings is not None:
         try:
-            # Turn user query into math vectors
             query_embedding = encoder.encode(user_input, convert_to_tensor=True)
-            # Compute mathematical similarity scores against all database paragraphs
-            cos_scores = util.cos_sim(query_embedding, db_embeddings)[0]
-            # Find the position of the paragraph with the highest score
+            cos_scores = util.cos_sim(query_embedding, db_embeddings)
             best_match_idx = int(np.argmax(cos_scores.cpu().numpy()))
             matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
         except Exception:
-            pass # Fall back safely to standard advice if math engine hits an anomaly
+            pass
             
     # Quick exit path if InkubaLM is not loaded
     if (not LLAMA_AVAILABLE) or (llm is None):
         return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
         
+    try:
+        # 2. Instruct InkubaLM to read the factual paragraph using correct Alpaca/Text framing templates
+        if lang == "Hausa":
+            system_instruction = (
+                "Kuna da babban masani aikin gona na gona na Afirka. "
+                "Dole ne ku yi amfani da bayanan da aka bayar (Context) don amsa tambayar. "
+                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI za ku yi amfani da shi!"
+            )
+        else:
+            system_instruction = (
+                "You are an expert African agricultural advisor. "
+                "CRITICAL: Use the provided Context to answer the user's question accurately. "
+                "Elaborate on the details to sound friendly, but stay anchored to context data."
+            )
+            
+        # FIXED: Swapped Qwen ChatML formatting for standard Alpaca text-completions required by InkubaLM
+        prompt = (
+            f"### Instruction:\n{system_instruction}\nContext: {matched_fact}\n\n"
+            f"### Input:\n{user_input}\n\n"
+            f"### Response:\n"
+        )
+        
+        response = llm(
+            prompt,
+            max_tokens=200,
+            temperature=0.2, 
+            top_p=0.9,
+            stop=["###", "Instruction:", "Input:", "Response:"],
+            echo=False
+        )
+        
+        # FIXED: Accessing completion choices list elements safely using integer indices
+        ai_response = response['choices'][0]['text'].strip()
+        
+        # Clean out any unexpected edge-case characters safely
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
+        
+        if len(ai_response) < 3:
+            return f"**Farming Truth Block:** {matched_fact}{cultural_closing}"
+            
+        return f"{ai_response}{cultural_closing}"
+        
+    except Exception as e:
+        # Debug printing inside Streamlit dashboard terminal to track any underlying syntax anomalies
+        st.sidebar.error(f"Internal Engine Alert: {str(e)}")
+        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
+
     try:
         # 2. Instruct InkubaLM to read the factual paragraph and shape the conversational outcome
         if lang == "Hausa":
