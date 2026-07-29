@@ -152,13 +152,18 @@ def run_ai_advisory(user_input, lang):
         return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
         
     try:
-        # 2. Instruct Qwen using targeted prompting strategies based on the selected language
+        # 2. Instruct Qwen to read the factual paragraph and shape the conversational outcome
         if lang == "Hausa":
-            # FIXED: Removed ChatML tags. This pure-text continuation forces the model into Hausa space.
+            system_instruction = (
+                "You are an expert African agricultural advisor. "
+                "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately. "
+                "TRANSLATION RULE: You must translate your final answer and write it ONLY in the Hausa language! "
+                "Do NOT write in English. Do NOT write Chinese. Write ONLY in clear Hausa text."
+            )
             prompt = (
-                f"Bayanai na Gona: {matched_fact}\n"
-                f"Tambaya: {user_input}\n"
-                f"Amsa madaidaiciya cikin Harshen Hausa: "
+                f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
+                f"<|im_start|>user\n{user_input}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
             )
         else:
             system_instruction = (
@@ -178,7 +183,7 @@ def run_ai_advisory(user_input, lang):
             max_tokens=250,
             temperature=0.0,       # Kept very low to force strict factual extraction instead of stories
             top_p=0.1,
-            repeat_penalty=1.35,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
+            repeat_penalty=1.3,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
             stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "\n", "Tambaya:"],
             echo=False
         )
