@@ -154,7 +154,7 @@ def run_ai_advisory(user_input, lang):
         # =========================================================
         # 2. Assign localized system paths cleanly with strict indentation alignment
     try:
-        # 1. Provide a short, explicit constraint instruction
+        # EXACT CODE SPACING: Notice the 4 spaces before the if/else statements
         if lang == "Hausa":
             system_instruction = "Kuna da masanin aikin gona. Yi amfani da bayanan da aka bayar kawai!"
             prompt = (
@@ -169,6 +169,7 @@ def run_ai_advisory(user_input, lang):
                 f"### Question: {user_input}\n"
                 f"### Direct Answer: "
             )
+
         
         # 2. Re-balance parameters with aggressive repetition and frequency penalties
         response = llm(
