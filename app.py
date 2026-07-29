@@ -157,7 +157,13 @@ def run_ai_advisory(user_input, lang):
             system_instruction = (
                 "Kuna da babban masani aikin gona na gona na Afirka. "
                 "Dole ne ku yi amfani da bayanan da aka bayar (Factsheet Context) don amsa tambayar. "
-                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI za ku yi amfani da shi! No Chinese characters."
+                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI za ku yi amfani da shi don amsawa! Kada ku rubuta da Turanci."
+            )
+            # FIXED: Language localized prompt structure for Hausa context routing
+            prompt = (
+                f"<|im_start|>system\n{system_instruction}\nBayani na Gona: {matched_fact}<|im_end|>\n"
+                f"<|im_start|>user\n{user_input}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
             )
         else:
             system_instruction = (
@@ -166,13 +172,12 @@ def run_ai_advisory(user_input, lang):
                 "Elaborate on the details to sound friendly and encouraging, but your facts MUST stay completely anchored to the factsheet context. "
                 "Do NOT invent unrelated facts, and write ONLY in clear English text without Chinese characters."
             )
-            
-        prompt = (
-            f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
-            f"<|im_start|>user\n{user_input}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
-        )
-        
+            prompt = (
+                f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
+                f"<|im_start|>user\n{user_input}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
+
         response = llm(
             prompt,
             max_tokens=250,
