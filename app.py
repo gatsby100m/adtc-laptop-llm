@@ -152,16 +152,13 @@ def run_ai_advisory(user_input, lang):
         # =========================================================
         # FIXED CONTEXT-CONTINUATION PROMPT (NO STRUCTURAL TAGS)
         # =========================================================
+        # 2. Assign localized system paths cleanly with strict indentation alignment
         if lang == "Hausa":
-            prompt = (
-                f"Bayanai na Gona: {matched_fact}\n"
-                f"Tambaya: {user_input}\n"
-                f"Amsa cikin Harshen Hausa: Dangane da bayanan gona da aka bayar,"
-            )
+            system_instruction = "Kuna da babban masani aikin gona na Afirka. Palas ku ba da amsa madaidaiciya cikin harshen Hausa kawai!"
         else:
-        # =========================================================
-        # FREE GENERATION PROMPT (NO CONTEXT EXTRACTION LAYER)
-        # =========================================================
+            system_instruction = "You are an expert African agricultural advisor. Provide a direct, friendly, and helpful solution to the farmer's problem using your knowledge."
+            
+        # This line must be pushed completely out of the if/else block (aligned with the 'if')
         prompt = (
             f"### Instruction:\n{system_instruction}\n\n"
             f"### Input:\n{user_input}\n\n"
