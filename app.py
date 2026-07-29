@@ -19,9 +19,9 @@ try:
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
 
-# SWAPPED TO INKUBALM (No functions or variables broken)
+# CONVERTED: Target the multilingual instruction-aligned Qwen2.5 model
 MODEL_DIR = "models"
-MODEL_NAME = "InkubaLM-0.4B.Q4_K_M.gguf"
+MODEL_NAME = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_NAME)
 
 @st.cache_resource
@@ -37,14 +37,15 @@ def initialize_offline_cores():
     # 1. Target Directory Guard
     os.makedirs(MODEL_DIR, exist_ok=True)
     
-    # 2. Check if the Judge has the InkubaLM GGUF model binary local on disk
+    # 2. Check if the Judge has the Qwen GGUF model binary local on disk
     if LLAMA_AVAILABLE:
         if not os.path.exists(MODEL_PATH):
-            with st.spinner("Downloading Native African InkubaLM-0.4B weights..."):
+            with st.spinner("Downloading Qwen2.5-0.5B-Instruct weights for the Laptop LLM Profile..."):
                 try:
                     from huggingface_hub import hf_hub_download
+                    # Updated repository target path to point to the official Qwen2.5 series
                     hf_hub_download(
-                        repo_id="QuantFactory/InkubaLM-0.4B-GGUF",
+                        repo_id="Qwen/Qwen2.5-0.5B-Instruct-GGUF",
                         filename=MODEL_NAME,
                         local_dir=MODEL_DIR,
                         local_dir_use_symlinks=False
@@ -75,8 +76,6 @@ llm, encoder = initialize_offline_cores()
 # =========================================================
 # UPGRADED SEMANTIC FARM KNOWLEDGE DATABASE
 # =========================================================
-# You can add as many detailed paragraphs here as you want!
-# The search engine handles matching sentences seamlessly.
 FARM_KNOWLEDGE_BASE = [
     "Maize Fertilizer Schedule: The first fertilizer application for maize should happen exactly 21 days after planting using NPK 15-15-15 compound fertilizer to develop roots. The second application must occur 42 days after planting using Urea to provide a high nitrogen boost for stalk growth.",
     "Cassava Leaf Spot Management: Cercospora Leaf Spot causes brown or dark spots on cassava leaves. This fungal infection thrives in humid conditions. Action: Ensure wide plant row spacing for better air ventilation, remove lower infected foliage, and apply copper-based fungicide if the outbreak is severe.",
@@ -85,15 +84,11 @@ FARM_KNOWLEDGE_BASE = [
     "TakidabakidoriyaakasarHausa: Cutartabaganyenmasara(CMD)yanakawobakikodoriyaaganye. Matakimafikyaushinecireshukandayarubedawuridonhanayaduwa,kumaayiamfanida ingantaccenirinshukamaijurecututtuka."
 ]
 
-# Pre-computetextvectormathmapsonstartuptomaximizebattery/CPUperformance
+# Pre-compute text vector math maps on startup to maximize battery/CPU performance
 if encoder is not None:
     db_embeddings = encoder.encode(FARM_KNOWLEDGE_BASE, convert_to_tensor=True)
 else:
     db_embeddings = None
-
-# =========================================================
-# PATCH 2: DATA STRUCTURES, LEDGER REBOOTS & LOCALIZATION (FIXED)
-# =========================================================
 
 CULTURAL_PROVERBS = [
     "Yoruba: Bí énìyàn bá șe gbingbin, béèni yóò șe kórè. (As we sow, so shall we reap.)",
@@ -102,12 +97,17 @@ CULTURAL_PROVERBS = [
     "Igbo: Onye gbambo na ubi, owu we ihe ubi ga-asacha anya mmiri ya. (He who labors in the field will have his tears wiped by the harvest.)"
 ]
 
-# Ensure your original UI transaction ledger trackers initialize correctly
-for state_key, default_val in [("revenue", 0.0), ("labour_cost", 0.0), ("fertilizer_cost", 0.0),
-                               ("equipment_cost", 0.0), ("other_expenses", 0.0), ("input_counter", 0)]:
-    if state_key not in st.session_state:
-        st.session_state[state_key] = default_val
+# Initialize Granular Farm Ledger States
+if "revenue" not in st.session_state: st.session_state.revenue = 0.0
+if "labour_cost" not in st.session_state: st.session_state.labour_cost = 0.0
+if "fertilizer_cost" not in st.session_state: st.session_state.fertilizer_cost = 0.0
+if "equipment_cost" not in st.session_state: st.session_state.equipment_cost = 0.0
+if "other_expenses" not in st.session_state: st.session_state.other_expenses = 0.0
+if "input_counter" not in st.session_state: st.session_state.input_counter = 0
 
+# =========================================================
+# TRANSLATION DICTIONARIES
+# =========================================================
 LANG_DICT = {
     "English": {
         "title": "Offline Smart Farm Assistant",
@@ -129,6 +129,9 @@ LANG_DICT = {
     }
 }
 
+# =========================================================
+# ADVANCED HYBRID VECTOR RAG ENGINE
+# =========================================================
 def run_ai_advisory(user_input, lang):
     cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
     matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
@@ -137,71 +140,18 @@ def run_ai_advisory(user_input, lang):
     if encoder is not None and db_embeddings is not None:
         try:
             query_embedding = encoder.encode(user_input, convert_to_tensor=True)
-            cos_scores = util.cos_sim(query_embedding, db_embeddings)
+            cos_scores = util.cos_sim(query_embedding, db_embeddings)[0]
             best_match_idx = int(np.argmax(cos_scores.cpu().numpy()))
             matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
         except Exception:
             pass
             
-    # Quick exit path if InkubaLM is not loaded
+    # Quick exit path if LLM is not loaded
     if (not LLAMA_AVAILABLE) or (llm is None):
         return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
         
     try:
-        # PERFECTLY ALIGNED TRY BLOCK STRUCTURE
-        if lang == "Hausa":
-            system_instruction = "Kuna da masanin aikin gona. Yi amfani da bayanan da aka bayar kawai!"
-            prompt = (
-                f"### Bayani: {matched_fact}\n"
-                f"### Tambaya: {user_input}\n"
-                f"### Amsa madaidaiciya cikin Hausa: "
-            )
-        else:
-            system_instruction = "You are an agricultural expert. Give a direct answer using the factsheet data only."
-            prompt = (
-                f"### Factsheet: {matched_fact}\n"
-                f"### Question: {user_input}\n"
-                f"### Direct Answer: "
-            )
-        
-        # Free inference settings with active loop-prevention brakes
-        response = llm(
-            prompt,
-            max_tokens=60,         # Short token window limits rambling/link-generation
-            temperature=0.1,       # Low temperature forces exact factual execution
-            top_p=0.75,            # Stable vocabulary pool cutoff
-            repeat_penalty=1.4,    # Strict penalty to crush sentence repeating
-            frequency_penalty=0.4, # Prevents specific word looping entirely
-            stop=["###", "Question:", "Tambaya:", "\n", "Factsheet:", "email", "@"],
-            echo=False
-        )
-        
-        # Access list index elements smoothly
-        ai_response = response['choices'][0]['text'].strip()
-        
-        # Strict post-processing clean-up sweeps
-        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)  # Strips rogue characters
-        ai_response = re.sub(r'\S+@\S+', '', ai_response)          # Erases rogue emails
-        ai_response = re.sub(r'http\S+|www\.\S+', '', ai_response)  # Erases rogue URLs
-        
-        if len(ai_response) < 5:
-            return f"**Advisor Insight:** {matched_fact}{cultural_closing}"
-            
-        return f"{ai_response}{cultural_closing}"
-        
-    except Exception as e:
-        # Prints the real under-the-hood error variables onto your UI sidebar for tracking
-        st.sidebar.error(f"Engine Exception: {str(e)}")
-        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
-
-        return f"{ai_response}{cultural_closing}"
-        
-    except Exception as e:
-        st.sidebar.error(f"Engine Exception: {str(e)}")
-        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
-        
-    try:
-        # 2. Instruct InkubaLM to read the factual paragraph and shape the conversational outcome
+        # 2. Instruct Qwen to read the factual paragraph and shape the conversational outcome
         if lang == "Hausa":
             system_instruction = (
                 "Kuna da babban masani aikin gona na gona na Afirka. "
@@ -225,16 +175,14 @@ def run_ai_advisory(user_input, lang):
         response = llm(
             prompt,
             max_tokens=250,
-            temperature=0.0, # Dropped to 0.4 to keep InkubaLM strictly following the retrieved facts
+            temperature=0.0, 
             top_p=0.1,
             stop=["<|im_end|>", "<|im_start|>", "User:", "System:"],
             echo=False
         )
         
-                # CORRECTED PATHWAY: Accessing the nested zero index element safely
+        # FIXED IN THE FILE: Accessing completion dictionary arrays safely using integer indices
         ai_response = response['choices'][0]['text'].strip()
-        
-        # Your original clean-up script variables remain completely untouched below
         ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
         
         if len(ai_response) < 3:
@@ -289,7 +237,6 @@ def parse_financial_statement(stmt):
 # =========================================================
 # STREAMLIT GRAPHICAL INTERFACE
 # =========================================================
-# Environment flags are set globally at top; layout begins safely below configuration thresholds
 st.set_page_config(page_title="SmartFarmAssistant", layout="wide")
 
 if llm is None:
@@ -400,7 +347,6 @@ with tab3:
         if st.button("Add to Equipment / Kara Kudin KayanAiki"):
             st.session_state.equipment_cost += equip_input
             st.success(f"Added -{equip_input:,.2f} Naira to Equipment!")
-            st.rerun()
 
     st.markdown("---")
     st.markdown("### Farm Profit & Loss Summary / Bayanin Riba da Asara")
