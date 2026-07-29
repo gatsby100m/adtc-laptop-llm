@@ -176,11 +176,12 @@ def run_ai_advisory(user_input, lang):
         
         response = llm(
             prompt,
-            max_tokens=150,
-            temperature=0.3,       # Dropped to 0.3 to keep it focused on the context
-            top_p=0.9,
-            repeat_penalty=1.2,    # CRITICAL: Forces the model to stop looping words
-            stop=["###", "Instruction:", "Input:", "Response:"],
+            max_tokens=120,        # Clean, budgeted length ceiling
+            temperature=0.25,      # Low temperature forces the model to stick to facts
+            top_p=0.85,            # Balanced Top-P cuts off low-probability gibberish tokens
+            repeat_penalty=1.25,   # Strongly discourages structural phrase looping
+            frequency_penalty=0.2, # Prevents individual word loops (like breath-breath)
+            stop=["###", "Instruction:", "Input:", "Response:", "\n\n\n"],
             echo=False
         )
         
