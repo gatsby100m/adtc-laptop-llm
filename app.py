@@ -163,7 +163,7 @@ def run_ai_advisory(user_input, lang):
             )
             
         # FIXED: Swapped Qwen ChatML formatting for standard Alpaca text-completions required by InkubaLM
-        prompt = (
+        
         # =========================================================
         # THE EXACT FIXED PROMPT TEMPLATE (FIXES REPETITION LOOP)
         # =========================================================
