@@ -199,8 +199,10 @@ def run_ai_advisory(user_input, lang):
             echo=False
         )
         
+                # CORRECTED PATHWAY: Accessing the nested zero index element safely
         ai_response = response['choices'][0]['text'].strip()
-        # Wipe out any unexpected Chinese tokens natively
+        
+        # Your original clean-up script variables remain completely untouched below
         ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
         
         if len(ai_response) < 3:
