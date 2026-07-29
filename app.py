@@ -175,9 +175,9 @@ def run_ai_advisory(user_input, lang):
 
         response = llm(
             prompt,
-            max_tokens=150,
-            temperature=0.1,       # Kept very low to force strict factual extraction instead of stories
-            top_p=0.8,
+            max_tokens=250,
+            temperature=0.0,       # Kept very low to force strict factual extraction instead of stories
+            top_p=0.1,
             repeat_penalty=1.35,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
             stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "\n", "Tambaya:"],
             echo=False
