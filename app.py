@@ -152,18 +152,13 @@ def run_ai_advisory(user_input, lang):
         return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
         
     try:
-        # 2. Instruct Qwen to read the factual paragraph and shape the conversational outcome
+        # 2. Instruct Qwen using targeted prompting strategies based on the selected language
         if lang == "Hausa":
-            system_instruction = (
-                "Kuna da babban masani aikin gona na gona na Afirka. "
-                "Dole ne ku yi amfani da bayanan da aka bayar (Factsheet Context) don amsa tambayar. "
-                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI za ku yi amfani da shi don amsawa! Kada ku rubuta da Turanci."
-            )
-            # FIXED: Language localized prompt structure for Hausa context routing
+            # FIXED: Removed ChatML tags. This pure-text continuation forces the model into Hausa space.
             prompt = (
-                f"<|im_start|>system\n{system_instruction}\nBayani na Gona: {matched_fact}<|im_end|>\n"
-                f"<|im_start|>user\n{user_input}<|im_end|>\n"
-                f"<|im_start|>assistant\n"
+                f"Bayanai na Gona: {matched_fact}\n"
+                f"Tambaya: {user_input}\n"
+                f"Amsa madaidaiciya cikin Harshen Hausa: "
             )
         else:
             system_instruction = (
@@ -180,10 +175,11 @@ def run_ai_advisory(user_input, lang):
 
         response = llm(
             prompt,
-            max_tokens=250,
-            temperature=0.0, 
-            top_p=0.1,
-            stop=["<|im_end|>", "<|im_start|>", "User:", "System:"],
+            max_tokens=150,
+            temperature=0.1,       # Kept very low to force strict factual extraction instead of stories
+            top_p=0.8,
+            repeat_penalty=1.35,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
+            stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "\n", "Tambaya:"],
             echo=False
         )
         
