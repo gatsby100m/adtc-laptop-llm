@@ -153,47 +153,53 @@ def run_ai_advisory(user_input, lang):
         # FIXED CONTEXT-CONTINUATION PROMPT (NO STRUCTURAL TAGS)
         # =========================================================
         # 2. Assign localized system paths cleanly with strict indentation alignment
+    try:
+        # 1. Provide a short, explicit constraint instruction
         if lang == "Hausa":
-            system_instruction = "Kuna da babban masani aikin gona na Afirka. Palas ku ba da amsa madaidaiciya cikin harshen Hausa kawai!"
+            system_instruction = "Kuna da masanin aikin gona. Yi amfani da bayanan da aka bayar kawai!"
+            prompt = (
+                f"### Bayani: {matched_fact}\n"
+                f"### Tambaya: {user_input}\n"
+                f"### Amsa madaidaiciya cikin Hausa: "
+            )
         else:
-            system_instruction = "You are an expert African agricultural advisor. Provide a direct, friendly, and helpful solution to the farmer's problem using your knowledge."
-            
-        # This line must be pushed completely out of the if/else block (aligned with the 'if')
-        prompt = (
-            f"### Instruction:\n{system_instruction}\n\n"
-            f"### Input:\n{user_input}\n\n"
-            f"### Response:\n"
-        )
+            system_instruction = "You are an agricultural expert. Give a direct answer using the factsheet data only."
+            prompt = (
+                f"### Factsheet: {matched_fact}\n"
+                f"### Question: {user_input}\n"
+                f"### Direct Answer: "
+            )
         
-        # Free inference settings with active loop-prevention brakes
+        # 2. Re-balance parameters with aggressive repetition and frequency penalties
         response = llm(
             prompt,
-            max_tokens=120,        # Increased space for complete AI-driven thoughts
-            temperature=0.6,       # Raised to 0.6 to unlock natural conversational flow
-            top_p=0.9,             # Gives access to a wide vocabulary choice pool
-            repeat_penalty=1.3,    # Keeps active loop protection intact
-            frequency_penalty=0.2, # Stops the model from repeating individual words
-            stop=["###", "Instruction:", "Input:", "Response:"],
+            max_tokens=60,         # Cut short to prevent long story rambling or link generation
+            temperature=0.1,       # Locked low to eliminate random hallucinations or web addresses
+            top_p=0.75,            # Tight pool to block nonsensical email tokens
+            repeat_penalty=1.4,    # Strict penalty to crush sentence repeating
+            frequency_penalty=0.4, # Prevents repetitive word looping entirely
+            stop=["###", "Question:", "Tambaya:", "\n", "Factsheet:", "email", "@"],
             echo=False
-        ) 
+        )
         
-        # FIXED: Accessing completion choices list elements safely using integer indices
-        ai_response = response['choices'][0]['text'].strip()
+        ai_response = response['choices']['text'].strip()
         
-        # Clean out any unexpected edge-case characters safely
-        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
+        # 3. Clean up the response text by removing anything that looks like an email or a website link
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)  # Clear rogue characters
+        ai_response = re.sub(r'\S+@\S+', '', ai_response)          # Clear any accidental emails
+        ai_response = re.sub(r'http\S+|www\.\S+', '', ai_response)  # Clear any accidental links
         
-        if len(ai_response) < 3:
-            return f"**Farming Truth Block:** {matched_fact}{cultural_closing}"
+        # Safe string protection check
+        if len(ai_response) < 5:
+            return f"**Advisor Insight:** {matched_fact}{cultural_closing}"
             
         return f"{ai_response}{cultural_closing}"
         
     except Exception as e:
-        # Debug printing inside Streamlit dashboard terminal to track any underlying syntax anomalies
-        st.sidebar.error(f"Internal Engine Alert: {str(e)}")
+        st.sidebar.error(f"Engine Exception: {str(e)}")
         return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
-
-    try:
+        
+        try:
         # 2. Instruct InkubaLM to read the factual paragraph and shape the conversational outcome
         if lang == "Hausa":
             system_instruction = (
