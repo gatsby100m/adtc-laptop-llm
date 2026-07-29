@@ -164,7 +164,12 @@ def run_ai_advisory(user_input, lang):
             
         # FIXED: Swapped Qwen ChatML formatting for standard Alpaca text-completions required by InkubaLM
         prompt = (
-            f"### Instruction:\n{system_instruction}\nContext: {matched_fact}\n\n"
+        # =========================================================
+        # THE EXACT FIXED PROMPT TEMPLATE (FIXES REPETITION LOOP)
+        # =========================================================
+        prompt = (
+            f"### Instruction:\n{system_instruction}\n"
+            f"Context: {matched_fact}\n\n"
             f"### Input:\n{user_input}\n\n"
             f"### Response:\n"
         )
@@ -172,8 +177,9 @@ def run_ai_advisory(user_input, lang):
         response = llm(
             prompt,
             max_tokens=150,
-            temperature=0.7, 
+            temperature=0.3,       # Dropped to 0.3 to keep it focused on the context
             top_p=0.9,
+            repeat_penalty=1.2,    # CRITICAL: Forces the model to stop looping words
             stop=["###", "Instruction:", "Input:", "Response:"],
             echo=False
         )
