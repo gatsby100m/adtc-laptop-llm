@@ -183,7 +183,7 @@ def run_ai_advisory(user_input, lang):
             max_tokens=250,
             temperature=0.0,       # Kept very low to force strict factual extraction instead of stories
             top_p=0.1,
-            repeat_penalty=1.3,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
+            repeat_penalty=1.1,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
             stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "\n", "Tambaya:"],
             echo=False
         )
