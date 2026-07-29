@@ -171,8 +171,8 @@ def run_ai_advisory(user_input, lang):
         
         response = llm(
             prompt,
-            max_tokens=200,
-            temperature=0.2, 
+            max_tokens=150,
+            temperature=0.7, 
             top_p=0.9,
             stop=["###", "Instruction:", "Input:", "Response:"],
             echo=False
