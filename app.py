@@ -134,10 +134,12 @@ LANG_DICT = {
 # ADVANCED HYBRID VECTOR RAG ENGINE
 # =========================================================
 def run_ai_advisory(user_input, lang):
-    cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest be heavy and rewarding!*"
+    cultural_closing = "\n\n*May your barns overflow this season! Mandani na gari!*" if lang == "Hausa" else "\n\n*May your harvest beheavy and rewarding!*"
+    
+    # Initialize a baseline query string if the vector map fails
     matched_fact = "Advise general monitoring, checking soil moisture, clearing competitive weeds, and maintaining row spacing layout protocols."
     
-    # 1. Execute Semantic Math Vector Search if Encoder is online
+    # 1. Execute Semantic Vector Search
     if encoder is not None and db_embeddings is not None:
         try:
             query_embedding = encoder.encode(user_input, convert_to_tensor=True)
@@ -146,19 +148,21 @@ def run_ai_advisory(user_input, lang):
             matched_fact = FARM_KNOWLEDGE_BASE[best_match_idx]
         except Exception:
             pass
-            
-    # Quick exit path if LLM is not loaded
-    if (not LLAMA_AVAILABLE) or (llm is None):
-        return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
-        
+
+    # =====================================================================
+    # CRITICAL FIX: FORCED TO RUN LLM RAW GENERATION ONLY
+    # =====================================================================
+    if not LLAMA_AVAILABLE or llm is None:
+        return "⚠️ Error: The Offline Core LLM Engine is missing or not fully loaded."
+
     try:
-        # 2. Instruct Qwen to read the factual paragraph and shape the conversational outcome
+        # 2. Format Chat Context Template
         if lang == "Hausa":
             system_instruction = (
                 "You are an expert African agricultural advisor. "
                 "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately. "
                 "TRANSLATION RULE: You must translate your final answer and write it ONLY in the Hausa language! "
-                "Do NOT write in English. Do NOT write Chinese. Write ONLY in clear Hausa text."
+                "Do NOT write in English. Write ONLY in clear Hausa text."
             )
             prompt = (
                 f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
@@ -170,7 +174,7 @@ def run_ai_advisory(user_input, lang):
                 "You are an expert African agricultural advisor. "
                 "CRITICAL: Use the provided Factsheet Context to answer the user's question accurately. "
                 "Elaborate on the details to sound friendly and encouraging, but your facts MUST stay completely anchored to the factsheet context. "
-                "Do NOT invent unrelated facts, and write ONLY in clear English text without Chinese characters."
+                "Do NOT invent unrelated facts, and write ONLY in clear English text."
             )
             prompt = (
                 f"<|im_start|>system\n{system_instruction}\nFactsheet Context: {matched_fact}<|im_end|>\n"
@@ -178,26 +182,26 @@ def run_ai_advisory(user_input, lang):
                 f"<|im_start|>assistant\n"
             )
 
+        # 3. Request LLM Completion Pipeline
         response = llm(
             prompt,
             max_tokens=250,
-            temperature=0.0,       # Kept very low to force strict factual extraction instead of stories
-            top_p=0.1,
-            repeat_penalty=1.1,   # HARD BRAKE: Strongly punishes the model if it tries to loop words
-            stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "\n", "Tambaya:"],
+            temperature=0.3, # Bumping up from 0.0 allows the model more vocabulary freedom
+            top_p=0.8,       # Balanced token selection path
+            repeat_penalty=1.1,
+            stop=["<|im_end|>", "<|im_start|>", "User:", "System:", "Tambaya:"], # FIXED: Removed "\n"
             echo=False
         )
         
-        # FIXED IN THE FILE: Accessing completion dictionary arrays safely using integer indices
+        # 4. Process Response String
         ai_response = response['choices'][0]['text'].strip()
-        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response) # Clear unexpected characters
         
-        if len(ai_response) < 3:
-            return f"**Farming Truth Block:** {matched_fact}{cultural_closing}"
-            
+        # Return AI answer cleanly
         return f"{ai_response}{cultural_closing}"
+
     except Exception as e:
-        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
+        return f"⚠️ Pipeline Inference Error: {str(e)}"
 
 def calculate_crop_timeline(crop, start_date):
     if crop == "Maize":
