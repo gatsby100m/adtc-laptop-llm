@@ -149,39 +149,30 @@ def run_ai_advisory(user_input, lang):
         
     try:
         # 2. Instruct InkubaLM to read the factual paragraph using correct Alpaca/Text framing templates
+        # =========================================================
+        # FIXED CONTEXT-CONTINUATION PROMPT (NO STRUCTURAL TAGS)
+        # =========================================================
         if lang == "Hausa":
-            system_instruction = (
-                "Kuna da babban masani aikin gona na gona na Afirka. "
-                "Dole ne ku yi amfani da bayanan da aka bayar (Context) don amsa tambayar. "
-                "Kada ku ƙirƙiri sabon abu dabam. HARSHEN HAUSA KAWAI za ku yi amfani da shi!"
+            prompt = (
+                f"Bayanai na Gona: {matched_fact}\n"
+                f"Tambaya: {user_input}\n"
+                f"Amsa cikin Harshen Hausa: Dangane da bayanan gona da aka bayar,"
             )
         else:
-            system_instruction = (
-                "You are an expert African agricultural advisor. "
-                "CRITICAL: Use the provided Context to answer the user's question accurately. "
-                "Elaborate on the details to sound friendly, but stay anchored to context data."
+            prompt = (
+                f"Agricultural Factsheet: {matched_fact}\n"
+                f"User Question: {user_input}\n"
+                f"Expert Answer: Based on the provided agricultural factsheet,"
             )
-            
-        # FIXED: Swapped Qwen ChatML formatting for standard Alpaca text-completions required by InkubaLM
         
-        # =========================================================
-        # THE EXACT FIXED PROMPT TEMPLATE (FIXES REPETITION LOOP)
-        # =========================================================
-        prompt = (
-            f"### Instruction:\n{system_instruction}\n"
-            f"Context: {matched_fact}\n\n"
-            f"### Input:\n{user_input}\n\n"
-            f"### Response:\n"
-        )
-        
+        # Pure text prediction settings with strict stop delimiters
         response = llm(
             prompt,
-            max_tokens=120,        # Clean, budgeted length ceiling
-            temperature=0.25,      # Low temperature forces the model to stick to facts
-            top_p=0.85,            # Balanced Top-P cuts off low-probability gibberish tokens
-            repeat_penalty=1.25,   # Strongly discourages structural phrase looping
-            frequency_penalty=0.2, # Prevents individual word loops (like breath-breath)
-            stop=["###", "Instruction:", "Input:", "Response:", "\n\n\n"],
+            max_tokens=90,          # Clean, concise text block budget
+            temperature=0.15,       # Keeps token weights strictly logical
+            top_p=0.8,              # Filters out erratic low-probability strings
+            repeat_penalty=1.3,     # Prevents the model from repeating context phrases
+            stop=["\n", "User Question:", "Tambaya:", "Agricultural Factsheet:"],
             echo=False
         )
         
