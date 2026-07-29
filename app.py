@@ -159,22 +159,26 @@ def run_ai_advisory(user_input, lang):
                 f"Amsa cikin Harshen Hausa: Dangane da bayanan gona da aka bayar,"
             )
         else:
-            prompt = (
-                f"Agricultural Factsheet: {matched_fact}\n"
-                f"User Question: {user_input}\n"
-                f"Expert Answer: Based on the provided agricultural factsheet,"
-            )
+        # =========================================================
+        # FREE GENERATION PROMPT (NO CONTEXT EXTRACTION LAYER)
+        # =========================================================
+        prompt = (
+            f"### Instruction:\n{system_instruction}\n\n"
+            f"### Input:\n{user_input}\n\n"
+            f"### Response:\n"
+        )
         
-        # Pure text prediction settings with strict stop delimiters
+        # Free inference settings with active loop-prevention brakes
         response = llm(
             prompt,
-            max_tokens=90,          # Clean, concise text block budget
-            temperature=0.15,       # Keeps token weights strictly logical
-            top_p=0.8,              # Filters out erratic low-probability strings
-            repeat_penalty=1.3,     # Prevents the model from repeating context phrases
-            stop=["\n", "User Question:", "Tambaya:", "Agricultural Factsheet:"],
+            max_tokens=120,        # Increased space for complete AI-driven thoughts
+            temperature=0.6,       # Raised to 0.6 to unlock natural conversational flow
+            top_p=0.9,             # Gives access to a wide vocabulary choice pool
+            repeat_penalty=1.3,    # Keeps active loop protection intact
+            frequency_penalty=0.2, # Stops the model from repeating individual words
+            stop=["###", "Instruction:", "Input:", "Response:"],
             echo=False
-        )
+        ) 
         
         # FIXED: Accessing completion choices list elements safely using integer indices
         ai_response = response['choices'][0]['text'].strip()
