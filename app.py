@@ -148,13 +148,7 @@ def run_ai_advisory(user_input, lang):
         return f"**Offline Semantic Match:** {matched_fact}\n\n*(Note: Running in high-performance lookup fallback mode).*\n{cultural_closing}"
         
     try:
-        # 2. Instruct InkubaLM to read the factual paragraph using correct Alpaca/Text framing templates
-        # =========================================================
-        # FIXED CONTEXT-CONTINUATION PROMPT (NO STRUCTURAL TAGS)
-        # =========================================================
-        # 2. Assign localized system paths cleanly with strict indentation alignment
-    try:
-        # EXACT CODE SPACING: Notice the 4 spaces before the if/else statements
+        # PERFECTLY ALIGNED TRY BLOCK STRUCTURE
         if lang == "Hausa":
             system_instruction = "Kuna da masanin aikin gona. Yi amfani da bayanan da aka bayar kawai!"
             prompt = (
@@ -169,31 +163,37 @@ def run_ai_advisory(user_input, lang):
                 f"### Question: {user_input}\n"
                 f"### Direct Answer: "
             )
-
         
-        # 2. Re-balance parameters with aggressive repetition and frequency penalties
+        # Free inference settings with active loop-prevention brakes
         response = llm(
             prompt,
-            max_tokens=60,         # Cut short to prevent long story rambling or link generation
-            temperature=0.1,       # Locked low to eliminate random hallucinations or web addresses
-            top_p=0.75,            # Tight pool to block nonsensical email tokens
+            max_tokens=60,         # Short token window limits rambling/link-generation
+            temperature=0.1,       # Low temperature forces exact factual execution
+            top_p=0.75,            # Stable vocabulary pool cutoff
             repeat_penalty=1.4,    # Strict penalty to crush sentence repeating
-            frequency_penalty=0.4, # Prevents repetitive word looping entirely
+            frequency_penalty=0.4, # Prevents specific word looping entirely
             stop=["###", "Question:", "Tambaya:", "\n", "Factsheet:", "email", "@"],
             echo=False
         )
         
-        ai_response = response['choices']['text'].strip()
+        # Access list index elements smoothly
+        ai_response = response['choices'][0]['text'].strip()
         
-        # 3. Clean up the response text by removing anything that looks like an email or a website link
-        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)  # Clear rogue characters
-        ai_response = re.sub(r'\S+@\S+', '', ai_response)          # Clear any accidental emails
-        ai_response = re.sub(r'http\S+|www\.\S+', '', ai_response)  # Clear any accidental links
+        # Strict post-processing clean-up sweeps
+        ai_response = re.sub(r'[\u4e00-\u9fff]+', '', ai_response)  # Strips rogue characters
+        ai_response = re.sub(r'\S+@\S+', '', ai_response)          # Erases rogue emails
+        ai_response = re.sub(r'http\S+|www\.\S+', '', ai_response)  # Erases rogue URLs
         
-        # Safe string protection check
         if len(ai_response) < 5:
             return f"**Advisor Insight:** {matched_fact}{cultural_closing}"
             
+        return f"{ai_response}{cultural_closing}"
+        
+    except Exception as e:
+        # Prints the real under-the-hood error variables onto your UI sidebar for tracking
+        st.sidebar.error(f"Engine Exception: {str(e)}")
+        return f"**Offline Semantic Fallback:** {matched_fact}{cultural_closing}"
+
         return f"{ai_response}{cultural_closing}"
         
     except Exception as e:
